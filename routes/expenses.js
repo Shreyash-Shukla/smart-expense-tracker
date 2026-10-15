@@ -3,11 +3,32 @@ const Expense = require('../models/Expense');
 const auth = require('../middleware/auth');
 
 const router = express.Router();
+const categories = ['Food', 'Transportation', 'Entertainment', 'Shopping', 'Bills', 'Healthcare', 'Education', 'Other'];
+
+function expenseInput(body) {
+  const { title, amount, category, description, date } = body;
+  if (typeof title !== 'string' || !title.trim() || title.trim().length > 100 ||
+      typeof amount !== 'number' || !Number.isFinite(amount) || amount < 0 ||
+      !categories.includes(category) ||
+      (description !== undefined && (typeof description !== 'string' || description.length > 500)) ||
+      (date !== undefined && (typeof date !== 'string' || Number.isNaN(Date.parse(date))))) {
+    return null;
+  }
+  return { title: title.trim(), amount, category, description: description || '', date: date ? new Date(date) : new Date() };
+}
 
 // Get all expenses for a user
 router.get('/', auth, async (req, res) => {
   try {
-    const { page = 1, limit = 10, category, startDate, endDate } = req.query;
+    const { category, startDate, endDate } = req.query;
+    const page = Number(req.query.page || 1);
+    const limit = Number(req.query.limit || 10);
+    if (!Number.isInteger(page) || page < 1 || !Number.isInteger(limit) || limit < 1 || limit > 100 ||
+        (category && !categories.includes(category)) ||
+        (startDate && Number.isNaN(Date.parse(startDate))) ||
+        (endDate && Number.isNaN(Date.parse(endDate)))) {
+      return res.status(400).json({ message: 'Invalid filters' });
+    }
     
     const filter = { user: req.userId };
     
@@ -20,7 +41,7 @@ router.get('/', auth, async (req, res) => {
 
     const expenses = await Expense.find(filter)
       .sort({ date: -1 })
-      .limit(limit * 1)
+      .limit(limit)
       .skip((page - 1) * limit);
 
     const total = await Expense.countDocuments(filter);
@@ -32,38 +53,35 @@ router.get('/', auth, async (req, res) => {
       total
     });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error(error);
+    res.status(500).json({ message: 'Could not load expenses' });
   }
 });
 
 // Create new expense
 router.post('/', auth, async (req, res) => {
   try {
-    const { title, amount, category, description, date } = req.body;
-
-    const expense = new Expense({
-      user: req.userId,
-      title,
-      amount,
-      category,
-      description,
-      date: date || new Date()
-    });
+    const input = expenseInput(req.body || {});
+    if (!input) return res.status(400).json({ message: 'Invalid expense details' });
+    const expense = new Expense({ user: req.userId, ...input });
 
     await expense.save();
     res.status(201).json(expense);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error(error);
+    res.status(500).json({ message: 'Could not create expense' });
   }
 });
 
 // Update expense
 router.put('/:id', auth, async (req, res) => {
   try {
+    const input = expenseInput(req.body || {});
+    if (!input) return res.status(400).json({ message: 'Invalid expense details' });
     const expense = await Expense.findOneAndUpdate(
       { _id: req.params.id, user: req.userId },
-      req.body,
-      { new: true }
+      { $set: input },
+      { new: true, runValidators: true }
     );
 
     if (!expense) {
@@ -72,7 +90,8 @@ router.put('/:id', auth, async (req, res) => {
 
     res.json(expense);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error(error);
+    res.status(500).json({ message: 'Could not update expense' });
   }
 });
 
@@ -87,7 +106,8 @@ router.delete('/:id', auth, async (req, res) => {
 
     res.json({ message: 'Expense deleted successfully' });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error(error);
+    res.status(500).json({ message: 'Could not delete expense' });
   }
 });
 
@@ -102,7 +122,8 @@ router.get('/:id', auth, async (req, res) => {
 
     res.json(expense);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error(error);
+    res.status(500).json({ message: 'Could not load expense' });
   }
 });
 

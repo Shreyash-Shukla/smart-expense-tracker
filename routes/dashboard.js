@@ -1,4 +1,5 @@
 const express = require('express');
+const mongoose = require('mongoose');
 const Expense = require('../models/Expense');
 const auth = require('../middleware/auth');
 
@@ -7,7 +8,7 @@ const router = express.Router();
 // Get dashboard statistics
 router.get('/stats', auth, async (req, res) => {
   try {
-    const userId = req.userId;
+    const userId = new mongoose.Types.ObjectId(req.userId);
     const { period = 'month' } = req.query;
 
     let startDate;
@@ -76,7 +77,7 @@ router.get('/stats', auth, async (req, res) => {
 router.get('/categories', auth, async (req, res) => {
   try {
     const { period = 'month' } = req.query;
-    const userId = req.userId;
+    const userId = new mongoose.Types.ObjectId(req.userId);
 
     let startDate;
     const endDate = new Date();

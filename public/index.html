@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Smart Expense Tracker</title>
+  <link rel="stylesheet" href="/styles.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <header class="site-header">
+    <div class="brand"><span class="brand-mark">S</span><span>Smart Expense Tracker</span></div>
+    <button id="logout" class="text-button" hidden>Log out</button>
+  </header>
+
+  <main>
+    <section id="auth-view" class="auth-layout">
+      <div class="intro">
+        <p class="eyebrow">YOUR MONEY, CLEARLY</p>
+        <h1>See where your money goes.</h1>
+        <p>Record everyday expenses and get a simple view of your spending.</p>
+      </div>
+      <div class="card auth-card">
+        <div class="tabs" role="tablist" aria-label="Account">
+          <button id="login-tab" class="tab active" type="button" aria-selected="true">Log in</button>
+          <button id="register-tab" class="tab" type="button" aria-selected="false">Create account</button>
+        </div>
+        <h2 id="auth-title">Welcome back</h2>
+        <form id="auth-form">
+          <label id="username-field" hidden>Username<input id="username" name="username" autocomplete="username" minlength="3" maxlength="30"></label>
+          <label>Email<input id="email" name="email" type="email" autocomplete="email" required></label>
+          <label>Password<input id="password" name="password" type="password" autocomplete="current-password" minlength="8" required></label>
+          <p id="auth-error" class="error" role="alert" hidden></p>
+          <button id="auth-submit" class="primary-button" type="submit">Log in</button>
+        </form>
+      </div>
+    </section>
+
+    <section id="dashboard-view" hidden>
+      <div class="page-heading">
+        <div><p class="eyebrow">OVERVIEW</p><h1 id="greeting">Your expenses</h1><p>Keep a record of what matters, one expense at a time.</p></div>
+      </div>
+      <div class="summary-grid">
+        <div class="card summary-card"><span>Total over the past month</span><strong id="month-total">₹0.00</strong></div>
+        <div class="card summary-card"><span>Recorded expenses</span><strong id="expense-count">0</strong></div>
+      </div>
+      <div class="content-grid">
+        <section class="card form-card" aria-labelledby="add-heading">
+          <h2 id="add-heading">Add an expense</h2>
+          <p class="muted">A few details are all you need.</p>
+          <form id="expense-form">
+            <label>What was it for?<input id="expense-title" name="title" maxlength="100" placeholder="e.g. Groceries" required></label>
+            <div class="form-row">
+              <label>Amount (₹)<input id="expense-amount" name="amount" type="number" min="0" step="0.01" placeholder="0.00" required></label>
+              <label>Date<input id="expense-date" name="date" type="date" required></label>
+            </div>
+            <label>Category<select id="expense-category" name="category" required>
+              <option>Food</option><option>Transportation</option><option>Entertainment</option><option>Shopping</option>
+              <option>Bills</option><option>Healthcare</option><option>Education</option><option>Other</option>
+            </select></label>
+            <label>Note <span class="muted">(optional)</span><textarea id="expense-description" name="description" maxlength="500" rows="3" placeholder="Anything you want to remember"></textarea></label>
+            <p id="expense-error" class="error" role="alert" hidden></p>
+            <button id="expense-submit" class="primary-button" type="submit">Save expense</button>
+          </form>
+        </section>
+        <section class="card list-card" aria-labelledby="history-heading">
+          <div class="section-heading"><div><h2 id="history-heading">Recent expenses</h2><p class="muted">Your latest entries</p></div></div>
+          <p id="list-error" class="error" role="alert" hidden></p>
+          <div id="expense-list" class="expense-list"></div>
+          <button id="load-more" class="secondary-button" type="button" hidden>Load more</button>
+        </section>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

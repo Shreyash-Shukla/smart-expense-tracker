@@ -1,72 +1,29 @@
-<<<<<<< HEAD
-# smart-expense-tracker
-This is the repository for my project of Smart Expense Tracker
-=======
 # Smart Expense Tracker
 
-A full-stack finance tracker built with the MERN stack that provides comprehensive expense management with category-wise tracking and interactive dashboards.
+A small expense tracker with accounts, expense entry, history, and a monthly total. The browser interface and API are served by one Node.js process. Amounts are displayed in INR.
 
-## Features
+## Run locally
 
-- **User Authentication**: JWT-based secure authentication system
-- **Expense Management**: Add, edit, delete, and categorize expenses
-- **Interactive Dashboard**: Visual insights using Chart.js
-- **Category-wise Tracking**: Organize expenses by categories (Food, Transportation, Entertainment, etc.)
-- **REST APIs**: Scalable API endpoints with MongoDB integration
-- **Responsive Design**: Modern UI built with React
+Requirements: Node.js 20 or later and a MongoDB database.
 
-## Tech Stack
+1. Run `npm install`.
+2. Copy `.env.example` to `.env` and set `MONGODB_URI` and a random `JWT_SECRET` of at least 32 characters. Do not commit `.env`.
+3. Run `npm run dev`.
+4. Open `http://localhost:5000`.
 
-- **Frontend**: React, Chart.js
-- **Backend**: Node.js, Express.js
-- **Database**: MongoDB
-- **Authentication**: JWT (JSON Web Tokens)
-- **Security**: bcryptjs for password hashing
+Run `npm test` for the API integration test. It uses a temporary database on local MongoDB; set `TEST_MONGODB_URI` to use another MongoDB server.
 
-## Installation
+## Deploy
 
-1. Clone the repository
-2. Install server dependencies:
-   ```bash
-   npm install
-   ```
-3. Install client dependencies:
-   ```bash
-   npm run install-client
-   ```
-4. Create a `.env` file from `.env.example` and configure your MongoDB URI
-5. Start the development server:
-   ```bash
-   npm run dev
-   ```
+Deploy this repository as a Node web service on a host that supports persistent processes (for example, Render). Use `npm ci` as the build command and `npm start` as the start command. Set `MONGODB_URI` and `JWT_SECRET` in the host's environment settings. `PORT` is read from the host automatically. Configure a MongoDB Atlas database user and network access for the web service. The service starts only after it connects to the database. `/api/health` returns HTTP 200 when connected.
 
-## API Endpoints
+The app is currently a minimal release: it has no planner, recurring expenses, multi-currency support, or password recovery. Keep the server and database credentials private.
 
-### Authentication
-- `POST /api/auth/register` - Register new user
-- `POST /api/auth/login` - User login
-- `GET /api/auth/profile` - Get user profile
+## API
 
-### Expenses
-- `GET /api/expenses` - Get all expenses (with pagination and filtering)
-- `POST /api/expenses` - Create new expense
-- `PUT /api/expenses/:id` - Update expense
-- `DELETE /api/expenses/:id` - Delete expense
-- `GET /api/expenses/:id` - Get single expense
+- `POST /api/auth/register`, `POST /api/auth/login`, `GET /api/auth/profile`
+- `GET /api/expenses`, `POST /api/expenses`, `GET /api/expenses/:id`, `PUT /api/expenses/:id`, `DELETE /api/expenses/:id`
+- `GET /api/dashboard/stats`, `GET /api/dashboard/categories`
+- `GET /api/health`
 
-### Dashboard
-- `GET /api/dashboard/stats` - Get dashboard statistics
-- `GET /api/dashboard/categories` - Get category breakdown
-
-## Project Structure
-
-```
-Smart-Expense-Tracker/
-├── models/          # Mongoose models
-├── routes/          # API routes
-├── middleware/      # Custom middleware
-├── client/          # React frontend
-├── server.js        # Main server file
-└── package.json     # Dependencies and scripts
-```
->>>>>>> 4b7c261 (Initial commit)
+Expense and dashboard endpoints require an `Authorization: Bearer <token>` header.
