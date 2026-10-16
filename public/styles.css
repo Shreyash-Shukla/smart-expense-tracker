@@ -46,6 +46,7 @@ textarea { resize: vertical; }
 .expense-main { min-width: 0; }
 .expense-title { font-weight: 700; overflow-wrap: anywhere; }
 .expense-meta { color: #75847e; font-size: 13px; margin-top: 5px; }
+.expense-note { color: #526760; font-size: 14px; margin: 8px 0 0; overflow-wrap: anywhere; white-space: pre-wrap; }
 .expense-side { text-align: right; flex-shrink: 0; }
 .expense-amount { font-weight: 750; }
 .delete-button { border: 0; background: transparent; padding: 6px 0 0; color: #9b534c; font-size: 12px; }

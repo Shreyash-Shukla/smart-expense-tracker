@@ -70,6 +70,12 @@ function expenseRow(expense) {
   meta.className = 'expense-meta';
   meta.textContent = `${expense.category} · ${new Date(expense.date).toLocaleDateString()}`;
   main.append(title, meta);
+  if (expense.description) {
+    const note = document.createElement('p');
+    note.className = 'expense-note';
+    note.textContent = expense.description;
+    main.append(note);
+  }
   const side = document.createElement('div');
   side.className = 'expense-side';
   const amount = document.createElement('div');
