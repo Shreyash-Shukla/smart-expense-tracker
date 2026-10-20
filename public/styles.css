@@ -42,6 +42,8 @@ textarea { resize: vertical; }
 .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .form-actions { display: flex; flex-wrap: wrap; gap: 10px; }
 .section-heading { margin-bottom: 18px; }
+.filter-form { margin: 0 0 20px; gap: 12px; }
+.filter-form .form-actions { align-items: center; }
 .expense-list { border-top: 1px solid #edf1ee; }
 .expense-item { display: flex; justify-content: space-between; gap: 20px; padding: 17px 0; border-bottom: 1px solid #edf1ee; }
 .expense-main { min-width: 0; }

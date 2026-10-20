@@ -42,7 +42,7 @@
       </div>
       <div class="summary-grid">
         <div class="card summary-card"><span>Total over the past month</span><strong id="month-total">₹0.00</strong></div>
-        <div class="card summary-card"><span>Recorded expenses</span><strong id="expense-count">0</strong></div>
+        <div class="card summary-card"><span id="expense-count-label">Recorded expenses</span><strong id="expense-count">0</strong></div>
       </div>
       <div class="content-grid">
         <section class="card form-card" aria-labelledby="add-heading">
@@ -67,7 +67,21 @@
           </form>
         </section>
         <section class="card list-card" aria-labelledby="history-heading">
-          <div class="section-heading"><div><h2 id="history-heading">Recent expenses</h2><p class="muted">Your latest entries</p></div></div>
+          <div class="section-heading"><div><h2 id="history-heading">Expense history</h2><p class="muted">Find and review your entries</p></div></div>
+          <form id="filter-form" class="filter-form" aria-label="Filter expenses">
+            <label>Category<select id="filter-category" name="category">
+              <option value="">All categories</option><option>Food</option><option>Transportation</option><option>Entertainment</option><option>Shopping</option>
+              <option>Bills</option><option>Healthcare</option><option>Education</option><option>Other</option>
+            </select></label>
+            <div class="form-row">
+              <label>From<input id="filter-start" name="startDate" type="date"></label>
+              <label>To<input id="filter-end" name="endDate" type="date"></label>
+            </div>
+            <div class="form-actions">
+              <button class="secondary-button" type="submit">Apply filters</button>
+              <button id="clear-filters" class="text-button" type="button">Clear</button>
+            </div>
+          </form>
           <p id="list-error" class="error" role="alert" hidden></p>
           <div id="expense-list" class="expense-list"></div>
           <button id="load-more" class="secondary-button" type="button" hidden>Load more</button>

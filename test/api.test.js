@@ -44,6 +44,15 @@ test('accounts own their expenses and dashboard totals', async () => {
     assert.equal((await request('/api/dashboard/stats', 'GET', undefined, first.data.token)).data.totalExpenses, 300);
     assert.equal((await request(`/api/expenses/${expense.data._id}`, 'DELETE', undefined, first.data.token)).status, 200);
     assert.equal((await request('/api/expenses', 'GET', undefined, first.data.token)).data.total, 0);
+    const dated = await request('/api/expenses', 'POST', {
+      title: 'Late bill', amount: 100, category: 'Bills', date: '2025-04-12T23:30:00.000Z'
+    }, first.data.token);
+    assert.equal(dated.status, 201);
+    const filtered = await request('/api/expenses?category=Bills&startDate=2025-04-12T00%3A00%3A00.000Z&endDate=2025-04-12T23%3A59%3A59.999Z', 'GET', undefined, first.data.token);
+    assert.equal(filtered.status, 200);
+    assert.equal(filtered.data.total, 1);
+    assert.equal(filtered.data.expenses[0]._id, dated.data._id);
+    assert.equal((await request('/api/expenses?category=Food', 'GET', undefined, first.data.token)).data.total, 0);
   } finally {
     await mongoose.connection.dropDatabase();
     await mongoose.disconnect();

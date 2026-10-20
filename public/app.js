@@ -6,6 +6,8 @@ let page = 1;
 let totalPages = 1;
 let authMode = 'login';
 let editingId = null;
+let filters = { category: '', startDate: '', endDate: '' };
+let listRequestId = 0;
 
 function showError(id, message) {
   $(id).textContent = message || '';
@@ -21,6 +23,8 @@ function showView(signedIn) {
 
 function signOut() {
   resetExpenseForm();
+  $('filter-form').reset();
+  filters = { category: '', startDate: '', endDate: '' };
   token = null;
   user = null;
   localStorage.removeItem('expense-token');
@@ -145,19 +149,29 @@ function expenseRow(expense) {
 }
 
 async function loadExpenses(nextPage = 1) {
-  const data = await api(`/api/expenses?page=${nextPage}&limit=10`);
+  const requestId = ++listRequestId;
+  const params = new URLSearchParams({ page: nextPage, limit: 10 });
+  if (filters.category) params.set('category', filters.category);
+  if (filters.startDate) params.set('startDate', new Date(`${filters.startDate}T00:00:00`).toISOString());
+  if (filters.endDate) params.set('endDate', new Date(`${filters.endDate}T23:59:59.999`).toISOString());
+  const data = await api(`/api/expenses?${params}`);
+  if (requestId !== listRequestId) return;
   page = nextPage;
   totalPages = data.totalPages;
   if (nextPage === 1) $('expense-list').replaceChildren();
   if (data.total === 0) {
     const empty = document.createElement('p');
     empty.className = 'empty';
-    empty.textContent = 'No expenses yet. Add your first one to get started.';
+    empty.textContent = filters.category || filters.startDate || filters.endDate
+      ? 'No expenses match these filters.'
+      : 'No expenses yet. Add your first one to get started.';
     $('expense-list').append(empty);
   } else {
     data.expenses.forEach(expense => $('expense-list').append(expenseRow(expense)));
   }
   $('expense-count').textContent = data.total.toLocaleString();
+  $('expense-count-label').textContent = filters.category || filters.startDate || filters.endDate
+    ? 'Matching expenses' : 'Recorded expenses';
   $('load-more').hidden = page >= totalPages;
 }
 
@@ -174,6 +188,32 @@ $('login-tab').addEventListener('click', () => setAuthMode('login'));
 $('register-tab').addEventListener('click', () => setAuthMode('register'));
 $('logout').addEventListener('click', signOut);
 $('cancel-edit').addEventListener('click', resetExpenseForm);
+$('filter-form').addEventListener('submit', async event => {
+  event.preventDefault();
+  const startDate = $('filter-start').value;
+  const endDate = $('filter-end').value;
+  if (startDate && endDate && startDate > endDate) {
+    showError('list-error', 'From date must be on or before To date.');
+    return;
+  }
+  filters = { category: $('filter-category').value, startDate, endDate };
+  showError('list-error', '');
+  try {
+    await loadExpenses();
+  } catch (error) {
+    showError('list-error', error.message);
+  }
+});
+$('clear-filters').addEventListener('click', async () => {
+  $('filter-form').reset();
+  filters = { category: '', startDate: '', endDate: '' };
+  showError('list-error', '');
+  try {
+    await loadExpenses();
+  } catch (error) {
+    showError('list-error', error.message);
+  }
+});
 $('load-more').addEventListener('click', async () => {
   $('load-more').disabled = true;
   try {
