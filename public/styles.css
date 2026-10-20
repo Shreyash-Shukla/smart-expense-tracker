@@ -40,6 +40,7 @@ textarea { resize: vertical; }
 .content-grid { display: grid; grid-template-columns: 390px minmax(0, 1fr); gap: 20px; align-items: start; }
 .form-card > p, .section-heading p { margin: 6px 0 0; font-size: 14px; }
 .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.form-actions { display: flex; flex-wrap: wrap; gap: 10px; }
 .section-heading { margin-bottom: 18px; }
 .expense-list { border-top: 1px solid #edf1ee; }
 .expense-item { display: flex; justify-content: space-between; gap: 20px; padding: 17px 0; border-bottom: 1px solid #edf1ee; }
@@ -49,7 +50,9 @@ textarea { resize: vertical; }
 .expense-note { color: #526760; font-size: 14px; margin: 8px 0 0; overflow-wrap: anywhere; white-space: pre-wrap; }
 .expense-side { text-align: right; flex-shrink: 0; }
 .expense-amount { font-weight: 750; }
-.delete-button { border: 0; background: transparent; padding: 6px 0 0; color: #9b534c; font-size: 12px; }
+.expense-actions { display: flex; justify-content: flex-end; gap: 12px; }
+.expense-action { border: 0; background: transparent; padding: 6px 0 0; color: #177a60; font-size: 12px; }
+.delete-button { color: #9b534c; }
 .empty { color: #75847e; padding: 30px 0; text-align: center; }
 #load-more { display: block; margin: 20px auto 0; }
 @media (max-width: 850px) { .auth-layout, .content-grid { grid-template-columns: 1fr; gap: 28px; } .auth-layout { min-height: auto; } .auth-card { max-width: 520px; } }

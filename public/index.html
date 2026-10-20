@@ -60,7 +60,10 @@
             </select></label>
             <label>Note <span class="muted">(optional)</span><textarea id="expense-description" name="description" maxlength="500" rows="3" placeholder="Anything you want to remember"></textarea></label>
             <p id="expense-error" class="error" role="alert" hidden></p>
-            <button id="expense-submit" class="primary-button" type="submit">Save expense</button>
+            <div class="form-actions">
+              <button id="expense-submit" class="primary-button" type="submit">Save expense</button>
+              <button id="cancel-edit" class="secondary-button" type="button" hidden>Cancel edit</button>
+            </div>
           </form>
         </section>
         <section class="card list-card" aria-labelledby="history-heading">

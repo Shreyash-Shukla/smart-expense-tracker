@@ -5,6 +5,7 @@ let user = null;
 let page = 1;
 let totalPages = 1;
 let authMode = 'login';
+let editingId = null;
 
 function showError(id, message) {
   $(id).textContent = message || '';
@@ -19,10 +20,41 @@ function showView(signedIn) {
 }
 
 function signOut() {
+  resetExpenseForm();
   token = null;
   user = null;
   localStorage.removeItem('expense-token');
   showView(false);
+}
+
+function localDate(date) {
+  const value = new Date(date);
+  return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}-${String(value.getDate()).padStart(2, '0')}`;
+}
+
+function resetExpenseForm() {
+  editingId = null;
+  $('expense-form').reset();
+  setToday();
+  $('add-heading').textContent = 'Add an expense';
+  $('expense-submit').textContent = 'Save expense';
+  $('cancel-edit').hidden = true;
+  showError('expense-error', '');
+}
+
+function editExpense(expense) {
+  editingId = expense._id;
+  $('expense-title').value = expense.title;
+  $('expense-amount').value = expense.amount;
+  $('expense-date').value = localDate(expense.date);
+  $('expense-category').value = expense.category;
+  $('expense-description').value = expense.description || '';
+  $('add-heading').textContent = 'Edit expense';
+  $('expense-submit').textContent = 'Update expense';
+  $('cancel-edit').hidden = false;
+  showError('expense-error', '');
+  $('expense-form').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  $('expense-title').focus({ preventScroll: true });
 }
 
 async function api(path, options = {}) {
@@ -81,8 +113,16 @@ function expenseRow(expense) {
   const amount = document.createElement('div');
   amount.className = 'expense-amount';
   amount.textContent = money(expense.amount);
+  const actions = document.createElement('div');
+  actions.className = 'expense-actions';
+  const edit = document.createElement('button');
+  edit.className = 'expense-action';
+  edit.type = 'button';
+  edit.textContent = 'Edit';
+  edit.setAttribute('aria-label', `Edit ${expense.title}`);
+  edit.addEventListener('click', () => editExpense(expense));
   const remove = document.createElement('button');
-  remove.className = 'delete-button';
+  remove.className = 'expense-action delete-button';
   remove.type = 'button';
   remove.textContent = 'Delete';
   remove.setAttribute('aria-label', `Delete ${expense.title}`);
@@ -91,13 +131,15 @@ function expenseRow(expense) {
     remove.disabled = true;
     try {
       await api(`/api/expenses/${expense._id}`, { method: 'DELETE' });
+      if (editingId === expense._id) resetExpenseForm();
       await refresh();
     } catch (error) {
       showError('list-error', error.message);
       remove.disabled = false;
     }
   });
-  side.append(amount, remove);
+  actions.append(edit, remove);
+  side.append(amount, actions);
   row.append(main, side);
   return row;
 }
@@ -131,6 +173,7 @@ async function refresh() {
 $('login-tab').addEventListener('click', () => setAuthMode('login'));
 $('register-tab').addEventListener('click', () => setAuthMode('register'));
 $('logout').addEventListener('click', signOut);
+$('cancel-edit').addEventListener('click', resetExpenseForm);
 $('load-more').addEventListener('click', async () => {
   $('load-more').disabled = true;
   try {
@@ -169,15 +212,15 @@ $('expense-form').addEventListener('submit', async event => {
   const submit = $('expense-submit');
   submit.disabled = true;
   try {
-    await api('/api/expenses', { method: 'POST', body: JSON.stringify({
+    const path = editingId ? `/api/expenses/${editingId}` : '/api/expenses';
+    await api(path, { method: editingId ? 'PUT' : 'POST', body: JSON.stringify({
       title: $('expense-title').value.trim(),
       amount: Number($('expense-amount').value),
       category: $('expense-category').value,
       date: `${$('expense-date').value}T12:00:00`,
       description: $('expense-description').value.trim()
     }) });
-    $('expense-form').reset();
-    setToday();
+    resetExpenseForm();
     await refresh();
   } catch (error) {
     showError('expense-error', error.message);
