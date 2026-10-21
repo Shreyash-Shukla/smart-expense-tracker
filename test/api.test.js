@@ -53,6 +53,29 @@ test('accounts own their expenses and dashboard totals', async () => {
     assert.equal(filtered.data.total, 1);
     assert.equal(filtered.data.expenses[0]._id, dated.data._id);
     assert.equal((await request('/api/expenses?category=Food', 'GET', undefined, first.data.token)).data.total, 0);
+    assert.equal((await request('/api/budgets/2025-04')).status, 401);
+    assert.equal((await request('/api/budgets/2025-13', 'GET', undefined, first.data.token)).status, 400);
+    assert.equal((await request('/api/budgets/2025-04', 'PUT', { amount: -1 }, first.data.token)).status, 400);
+    const april = await request('/api/budgets/2025-04', 'GET', undefined, first.data.token);
+    assert.equal(april.status, 200);
+    assert.equal(april.data.budget, null);
+    assert.equal(april.data.spent, 100);
+    assert.equal((await request('/api/budgets/2025-04', 'GET', undefined, second.data.token)).data.spent, 0);
+    const savedBudget = await request('/api/budgets/2025-04', 'PUT', { amount: 150 }, first.data.token);
+    assert.equal(savedBudget.status, 200);
+    assert.equal(savedBudget.data.remaining, 50);
+    assert.equal((await request('/api/budgets/2025-04', 'GET', undefined, second.data.token)).data.budget, null);
+    const changedBudget = await request('/api/budgets/2025-04', 'PUT', { amount: 80 }, first.data.token);
+    assert.equal(changedBudget.data.remaining, -20);
+    const mayExpense = await request('/api/expenses', 'POST', {
+      title: 'May rent', amount: 500, category: 'Bills', date: '2025-05-01T00:00:00.000Z'
+    }, first.data.token);
+    assert.equal(mayExpense.status, 201);
+    assert.equal((await request('/api/budgets/2025-04', 'GET', undefined, first.data.token)).data.spent, 100);
+    assert.equal((await request('/api/budgets/2025-05', 'GET', undefined, first.data.token)).data.spent, 500);
+    const clearedBudget = await request('/api/budgets/2025-04', 'DELETE', undefined, first.data.token);
+    assert.equal(clearedBudget.status, 200);
+    assert.equal(clearedBudget.data.budget, null);
   } finally {
     await mongoose.connection.dropDatabase();
     await mongoose.disconnect();

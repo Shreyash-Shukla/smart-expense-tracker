@@ -44,6 +44,20 @@
         <div class="card summary-card"><span>Total over the past month</span><strong id="month-total">₹0.00</strong></div>
         <div class="card summary-card"><span id="expense-count-label">Recorded expenses</span><strong id="expense-count">0</strong></div>
       </div>
+      <section class="card budget-card" aria-labelledby="budget-heading">
+        <div class="budget-heading">
+          <div><h2 id="budget-heading">Monthly budget</h2><p class="muted">Plan a spending limit and track your progress.</p></div>
+          <label>Month<input id="budget-month" type="month" required></label>
+        </div>
+        <form id="budget-form" class="budget-form">
+          <label>Budget (₹)<input id="budget-amount" type="number" min="0.01" max="1000000000000" step="0.01" placeholder="Set a monthly limit" required></label>
+          <button id="budget-save" class="primary-button" type="submit">Save budget</button>
+          <button id="budget-clear" class="text-button" type="button" hidden>Clear budget</button>
+        </form>
+        <p id="budget-error" class="error" role="alert" hidden></p>
+        <p id="budget-status" class="budget-status" aria-live="polite"></p>
+        <div id="budget-progress" class="budget-progress" role="progressbar" aria-label="Budget used" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" hidden><span id="budget-progress-fill"></span></div>
+      </section>
       <div class="content-grid">
         <section class="card form-card" aria-labelledby="add-heading">
           <h2 id="add-heading">Add an expense</h2>

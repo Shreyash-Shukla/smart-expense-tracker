@@ -37,6 +37,17 @@ textarea { resize: vertical; }
 .summary-card { padding: 24px 28px; display: grid; gap: 12px; }
 .summary-card span { color: #71817c; font-size: 14px; }
 .summary-card strong { font-size: 32px; letter-spacing: -.04em; }
+.budget-card { padding: 26px 30px; margin-bottom: 20px; }
+.budget-heading { display: flex; align-items: start; justify-content: space-between; gap: 20px; }
+.budget-heading p { margin: 6px 0 0; font-size: 14px; }
+.budget-heading label { min-width: 170px; }
+.budget-form { display: flex; align-items: end; flex-wrap: wrap; gap: 12px; margin-top: 18px; }
+.budget-form label { flex: 1 1 220px; }
+.budget-form button { min-height: 44px; }
+.budget-status { margin: 16px 0 0; font-weight: 650; }
+.budget-progress { height: 10px; margin-top: 12px; border-radius: 999px; background: #e4eee8; overflow: hidden; }
+.budget-progress span { display: block; width: 0; height: 100%; background: #177a60; transition: width .2s ease; }
+.budget-progress.over span { background: #ad3434; }
 .content-grid { display: grid; grid-template-columns: 390px minmax(0, 1fr); gap: 20px; align-items: start; }
 .form-card > p, .section-heading p { margin: 6px 0 0; font-size: 14px; }
 .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
@@ -58,4 +69,4 @@ textarea { resize: vertical; }
 .empty { color: #75847e; padding: 30px 0; text-align: center; }
 #load-more { display: block; margin: 20px auto 0; }
 @media (max-width: 850px) { .auth-layout, .content-grid { grid-template-columns: 1fr; gap: 28px; } .auth-layout { min-height: auto; } .auth-card { max-width: 520px; } }
-@media (max-width: 540px) { .site-header { padding: 0 18px; } .brand { font-size: 14px; } main { padding: 36px 18px 64px; } .summary-grid { gap: 10px; } .summary-card { padding: 18px; } .summary-card strong { font-size: 24px; } .auth-card, .form-card, .list-card { padding: 22px; } .form-row { grid-template-columns: 1fr; } }
+@media (max-width: 540px) { .site-header { padding: 0 18px; } .brand { font-size: 14px; } main { padding: 36px 18px 64px; } .summary-grid { gap: 10px; } .summary-card { padding: 18px; } .summary-card strong { font-size: 24px; } .auth-card, .form-card, .list-card, .budget-card { padding: 22px; } .budget-heading { display: block; } .budget-heading label { margin-top: 14px; } .form-row { grid-template-columns: 1fr; } }

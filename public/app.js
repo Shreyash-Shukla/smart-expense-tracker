@@ -8,6 +8,7 @@ let authMode = 'login';
 let editingId = null;
 let filters = { category: '', startDate: '', endDate: '' };
 let listRequestId = 0;
+let budgetRequestId = 0;
 
 function showError(id, message) {
   $(id).textContent = message || '';
@@ -25,6 +26,11 @@ function signOut() {
   resetExpenseForm();
   $('filter-form').reset();
   filters = { category: '', startDate: '', endDate: '' };
+  budgetRequestId++;
+  $('budget-form').reset();
+  setCurrentMonth();
+  $('budget-status').textContent = '';
+  $('budget-progress').hidden = true;
   token = null;
   user = null;
   localStorage.removeItem('expense-token');
@@ -92,6 +98,32 @@ function setAuthMode(mode) {
 async function loadStats() {
   const stats = await api('/api/dashboard/stats?period=month');
   $('month-total').textContent = money(stats.totalExpenses);
+}
+
+function renderBudget(data) {
+  $('budget-amount').value = data.budget ?? '';
+  $('budget-clear').hidden = data.budget === null;
+  const progress = $('budget-progress');
+  progress.hidden = data.budget === null;
+  if (data.budget === null) {
+    $('budget-status').textContent = `${money(data.spent)} spent in the selected month. Set a budget to track what remains.`;
+    return;
+  }
+  const percent = Math.round(data.spent / data.budget * 100);
+  progress.setAttribute('aria-valuenow', String(Math.min(percent, 100)));
+  progress.setAttribute('aria-valuetext', `${percent}% of budget used`);
+  progress.classList.toggle('over', data.remaining < 0);
+  $('budget-progress-fill').style.width = `${Math.min(percent, 100)}%`;
+  $('budget-status').textContent = data.remaining >= 0
+    ? `${money(data.spent)} spent of ${money(data.budget)} · ${money(data.remaining)} left`
+    : `${money(data.spent)} spent of ${money(data.budget)} · ${money(-data.remaining)} over budget`;
+}
+
+async function loadBudget() {
+  const month = $('budget-month').value;
+  const requestId = ++budgetRequestId;
+  const data = await api(`/api/budgets/${month}`);
+  if (requestId === budgetRequestId && month === $('budget-month').value) renderBudget(data);
 }
 
 function expenseRow(expense) {
@@ -178,7 +210,7 @@ async function loadExpenses(nextPage = 1) {
 async function refresh() {
   showError('list-error', '');
   try {
-    await Promise.all([loadStats(), loadExpenses()]);
+    await Promise.all([loadStats(), loadExpenses(), loadBudget()]);
   } catch (error) {
     showError('list-error', error.message);
   }
@@ -188,6 +220,42 @@ $('login-tab').addEventListener('click', () => setAuthMode('login'));
 $('register-tab').addEventListener('click', () => setAuthMode('register'));
 $('logout').addEventListener('click', signOut);
 $('cancel-edit').addEventListener('click', resetExpenseForm);
+$('budget-month').addEventListener('change', async () => {
+  showError('budget-error', '');
+  try {
+    await loadBudget();
+  } catch (error) {
+    showError('budget-error', error.message);
+  }
+});
+$('budget-form').addEventListener('submit', async event => {
+  event.preventDefault();
+  showError('budget-error', '');
+  const submit = $('budget-save');
+  submit.disabled = true;
+  try {
+    await api(`/api/budgets/${$('budget-month').value}`, {
+      method: 'PUT', body: JSON.stringify({ amount: Number($('budget-amount').value) })
+    });
+    await loadBudget();
+  } catch (error) {
+    showError('budget-error', error.message);
+  } finally {
+    submit.disabled = false;
+  }
+});
+$('budget-clear').addEventListener('click', async () => {
+  showError('budget-error', '');
+  $('budget-clear').disabled = true;
+  try {
+    await api(`/api/budgets/${$('budget-month').value}`, { method: 'DELETE' });
+    await loadBudget();
+  } catch (error) {
+    showError('budget-error', error.message);
+  } finally {
+    $('budget-clear').disabled = false;
+  }
+});
 $('filter-form').addEventListener('submit', async event => {
   event.preventDefault();
   const startDate = $('filter-start').value;
@@ -274,7 +342,13 @@ function setToday() {
   $('expense-date').value = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
 }
 
+function setCurrentMonth() {
+  const today = new Date();
+  $('budget-month').value = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+}
+
 setToday();
+setCurrentMonth();
 if (token) {
   api('/api/auth/profile').then(profile => {
     user = profile;
