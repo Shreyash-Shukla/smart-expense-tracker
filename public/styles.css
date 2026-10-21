@@ -48,6 +48,17 @@ textarea { resize: vertical; }
 .budget-progress { height: 10px; margin-top: 12px; border-radius: 999px; background: #e4eee8; overflow: hidden; }
 .budget-progress span { display: block; width: 0; height: 100%; background: #177a60; transition: width .2s ease; }
 .budget-progress.over span { background: #ad3434; }
+.recurring-card { padding: 26px 30px; margin-bottom: 20px; }
+.recurring-card > p { margin: 6px 0 0; font-size: 14px; }
+.recurring-form { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 18px 0; align-items: end; }
+.recurring-form button { min-height: 44px; }
+.recurring-list { border-top: 1px solid #edf1ee; }
+.recurring-item { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 14px 0; border-bottom: 1px solid #edf1ee; }
+.recurring-item strong { display: block; }
+.recurring-item small { color: #71817c; }
+.recurring-actions { display: flex; gap: 12px; flex-shrink: 0; }
+.recurring-actions button { border: 0; background: transparent; color: #177a60; font-size: 13px; }
+.recurring-actions .delete-button { color: #9b534c; }
 .content-grid { display: grid; grid-template-columns: 390px minmax(0, 1fr); gap: 20px; align-items: start; }
 .form-card > p, .section-heading p { margin: 6px 0 0; font-size: 14px; }
 .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
@@ -68,5 +79,5 @@ textarea { resize: vertical; }
 .delete-button { color: #9b534c; }
 .empty { color: #75847e; padding: 30px 0; text-align: center; }
 #load-more { display: block; margin: 20px auto 0; }
-@media (max-width: 850px) { .auth-layout, .content-grid { grid-template-columns: 1fr; gap: 28px; } .auth-layout { min-height: auto; } .auth-card { max-width: 520px; } }
-@media (max-width: 540px) { .site-header { padding: 0 18px; } .brand { font-size: 14px; } main { padding: 36px 18px 64px; } .summary-grid { gap: 10px; } .summary-card { padding: 18px; } .summary-card strong { font-size: 24px; } .auth-card, .form-card, .list-card, .budget-card { padding: 22px; } .budget-heading { display: block; } .budget-heading label { margin-top: 14px; } .form-row { grid-template-columns: 1fr; } }
+@media (max-width: 850px) { .auth-layout, .content-grid { grid-template-columns: 1fr; gap: 28px; } .auth-layout { min-height: auto; } .auth-card { max-width: 520px; } .recurring-form { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 540px) { .site-header { padding: 0 18px; } .brand { font-size: 14px; } main { padding: 36px 18px 64px; } .summary-grid { gap: 10px; } .summary-card { padding: 18px; } .summary-card strong { font-size: 24px; } .auth-card, .form-card, .list-card, .budget-card, .recurring-card { padding: 22px; } .budget-heading { display: block; } .budget-heading label { margin-top: 14px; } .recurring-form { grid-template-columns: 1fr; } .recurring-item { align-items: start; flex-direction: column; } .form-row { grid-template-columns: 1fr; } }

@@ -31,10 +31,17 @@ const expenseSchema = new mongoose.Schema({
     type: Date,
     default: Date.now
   },
+  recurringRule: { type: mongoose.Schema.Types.ObjectId, ref: 'RecurringExpense' },
+  occurrenceDate: { type: String },
   createdAt: {
     type: Date,
     default: Date.now
   }
 });
+
+expenseSchema.index(
+  { recurringRule: 1, occurrenceDate: 1 },
+  { unique: true, partialFilterExpression: { recurringRule: { $exists: true } } }
+);
 
 module.exports = mongoose.model('Expense', expenseSchema);

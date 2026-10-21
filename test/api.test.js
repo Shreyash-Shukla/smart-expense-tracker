@@ -2,11 +2,19 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { randomUUID } = require('node:crypto');
 const mongoose = require('mongoose');
+const { advance } = require('../services/recurring');
 
 process.env.JWT_SECRET = 'test-secret-that-is-at-least-thirty-two-characters';
 const { app } = require('../server');
 
-test('accounts own their expenses and dashboard totals', async () => {
+test('recurring cadence keeps the original monthly day', () => {
+  assert.equal(advance('2025-01-31', 'monthly', 31), '2025-02-28');
+  assert.equal(advance('2025-02-28', 'monthly', 31), '2025-03-31');
+  assert.equal(advance('2024-02-29', 'monthly', 29), '2024-03-29');
+  assert.equal(advance('2025-04-12', 'weekly', 12), '2025-04-19');
+});
+
+test('accounts own expenses, budgets, and recurring schedules', async () => {
   const database = `expense_tracker_test_${randomUUID().replaceAll('-', '')}`;
   await mongoose.connect(process.env.TEST_MONGODB_URI || 'mongodb://127.0.0.1:27017', { dbName: database });
   const server = app.listen(0);
@@ -76,6 +84,29 @@ test('accounts own their expenses and dashboard totals', async () => {
     const clearedBudget = await request('/api/budgets/2025-04', 'DELETE', undefined, first.data.token);
     assert.equal(clearedBudget.status, 200);
     assert.equal(clearedBudget.data.budget, null);
+    assert.equal((await request('/api/recurring')).status, 401);
+    assert.equal((await request('/api/recurring', 'POST', { title: 'Bad', amount: 10, category: 'Bills', frequency: 'monthly', startDate: '2025-02-30' }, first.data.token)).status, 400);
+    const start = new Date();
+    start.setUTCDate(start.getUTCDate() - 2);
+    const recurring = await request('/api/recurring', 'POST', {
+      title: 'Daily commute', amount: 25, category: 'Transportation', frequency: 'daily',
+      startDate: start.toISOString().slice(0, 10)
+    }, first.data.token);
+    assert.equal(recurring.status, 201);
+    const recurringList = await request('/api/recurring', 'GET', undefined, first.data.token);
+    assert.equal(recurringList.data.length, 1);
+    assert.equal((await request('/api/recurring', 'GET', undefined, second.data.token)).data.length, 0);
+    const transport = await request('/api/expenses?category=Transportation', 'GET', undefined, first.data.token);
+    assert.equal(transport.data.total, 3);
+    assert.equal(transport.data.expenses.filter(item => item.recurringRule === recurring.data._id).length, 3);
+    assert.equal((await request('/api/expenses?category=Transportation', 'GET', undefined, second.data.token)).data.total, 0);
+    assert.equal((await request(`/api/recurring/${recurring.data._id}`, 'PATCH', { active: false }, second.data.token)).status, 404);
+    assert.equal((await request(`/api/recurring/${recurring.data._id}`, 'PATCH', { active: false }, first.data.token)).data.active, false);
+    assert.equal((await request(`/api/recurring/${recurring.data._id}`, 'PATCH', { active: true }, first.data.token)).data.active, true);
+    assert.equal((await request('/api/expenses?category=Transportation', 'GET', undefined, first.data.token)).data.total, 3);
+    assert.equal((await request(`/api/recurring/${recurring.data._id}`, 'DELETE', undefined, first.data.token)).status, 200);
+    assert.equal((await request('/api/recurring', 'GET', undefined, first.data.token)).data.length, 0);
+    assert.equal((await request('/api/expenses?category=Transportation', 'GET', undefined, first.data.token)).data.total, 3);
   } finally {
     await mongoose.connection.dropDatabase();
     await mongoose.disconnect();

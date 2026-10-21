@@ -2,11 +2,12 @@ const express = require('express');
 const mongoose = require('mongoose');
 const Expense = require('../models/Expense');
 const auth = require('../middleware/auth');
+const { syncRecurringMiddleware } = require('../services/recurring');
 
 const router = express.Router();
 
 // Get dashboard statistics
-router.get('/stats', auth, async (req, res) => {
+router.get('/stats', auth, syncRecurringMiddleware, async (req, res) => {
   try {
     const userId = new mongoose.Types.ObjectId(req.userId);
     const { period = 'month' } = req.query;
@@ -74,7 +75,7 @@ router.get('/stats', auth, async (req, res) => {
 });
 
 // Get category breakdown
-router.get('/categories', auth, async (req, res) => {
+router.get('/categories', auth, syncRecurringMiddleware, async (req, res) => {
   try {
     const { period = 'month' } = req.query;
     const userId = new mongoose.Types.ObjectId(req.userId);

@@ -1,6 +1,7 @@
 const express = require('express');
 const Expense = require('../models/Expense');
 const auth = require('../middleware/auth');
+const { syncRecurringMiddleware } = require('../services/recurring');
 
 const router = express.Router();
 const categories = ['Food', 'Transportation', 'Entertainment', 'Shopping', 'Bills', 'Healthcare', 'Education', 'Other'];
@@ -18,7 +19,7 @@ function expenseInput(body) {
 }
 
 // Get all expenses for a user
-router.get('/', auth, async (req, res) => {
+router.get('/', auth, syncRecurringMiddleware, async (req, res) => {
   try {
     const { category, startDate, endDate } = req.query;
     const page = Number(req.query.page || 1);

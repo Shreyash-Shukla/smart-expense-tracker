@@ -19,6 +19,7 @@ app.use('/api/auth', require('./routes/auth'));
 app.use('/api/expenses', require('./routes/expenses'));
 app.use('/api/dashboard', require('./routes/dashboard'));
 app.use('/api/budgets', require('./routes/budgets'));
+app.use('/api/recurring', require('./routes/recurring'));
 app.use(express.static(path.join(__dirname, 'public')));
 
 app.use((err, req, res, next) => {

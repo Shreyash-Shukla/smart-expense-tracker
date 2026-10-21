@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 const Budget = require('../models/Budget');
 const Expense = require('../models/Expense');
 const auth = require('../middleware/auth');
+const { syncRecurringMiddleware } = require('../services/recurring');
 
 const router = express.Router();
 router.use(auth);
@@ -31,7 +32,7 @@ router.param('month', (req, res, next, month) => {
   next();
 });
 
-router.get('/:month', async (req, res) => {
+router.get('/:month', syncRecurringMiddleware, async (req, res) => {
   try {
     res.json(await summary(req.userId, req.params.month));
   } catch (error) {

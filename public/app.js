@@ -9,6 +9,7 @@ let editingId = null;
 let filters = { category: '', startDate: '', endDate: '' };
 let listRequestId = 0;
 let budgetRequestId = 0;
+let recurringRequestId = 0;
 
 function showError(id, message) {
   $(id).textContent = message || '';
@@ -31,6 +32,10 @@ function signOut() {
   setCurrentMonth();
   $('budget-status').textContent = '';
   $('budget-progress').hidden = true;
+  recurringRequestId++;
+  $('recurring-form').reset();
+  setRecurringToday();
+  $('recurring-list').replaceChildren();
   token = null;
   user = null;
   localStorage.removeItem('expense-token');
@@ -126,6 +131,65 @@ async function loadBudget() {
   if (requestId === budgetRequestId && month === $('budget-month').value) renderBudget(data);
 }
 
+async function loadRecurring() {
+  const requestId = ++recurringRequestId;
+  const rules = await api('/api/recurring');
+  if (requestId !== recurringRequestId) return;
+  const list = $('recurring-list');
+  list.replaceChildren();
+  if (rules.length === 0) {
+    const empty = document.createElement('p');
+    empty.className = 'empty';
+    empty.textContent = 'No recurring expenses yet.';
+    list.append(empty);
+  }
+  for (const rule of rules) {
+    const row = document.createElement('div');
+    row.className = 'recurring-item';
+    const details = document.createElement('div');
+    const title = document.createElement('strong');
+    title.textContent = `${rule.title} · ${money(rule.amount)}`;
+    const meta = document.createElement('small');
+    meta.textContent = `${rule.category} · ${rule.frequency} · ${rule.active ? `Next: ${rule.nextDate}` : 'Paused'}`;
+    details.append(title, meta);
+    const actions = document.createElement('div');
+    actions.className = 'recurring-actions';
+    const toggle = document.createElement('button');
+    toggle.type = 'button';
+    toggle.textContent = rule.active ? 'Pause' : 'Resume';
+    toggle.setAttribute('aria-label', `${toggle.textContent} ${rule.title}`);
+    toggle.addEventListener('click', async () => {
+      toggle.disabled = true;
+      try {
+        await api(`/api/recurring/${rule._id}`, { method: 'PATCH', body: JSON.stringify({ active: !rule.active }) });
+        await refresh();
+      } catch (error) {
+        showError('recurring-error', error.message);
+        toggle.disabled = false;
+      }
+    });
+    const remove = document.createElement('button');
+    remove.type = 'button';
+    remove.className = 'delete-button';
+    remove.textContent = 'Remove';
+    remove.setAttribute('aria-label', `Remove ${rule.title} schedule`);
+    remove.addEventListener('click', async () => {
+      if (!confirm(`Remove the schedule for "${rule.title}"? Existing expense entries will stay.`)) return;
+      remove.disabled = true;
+      try {
+        await api(`/api/recurring/${rule._id}`, { method: 'DELETE' });
+        await refresh();
+      } catch (error) {
+        showError('recurring-error', error.message);
+        remove.disabled = false;
+      }
+    });
+    actions.append(toggle, remove);
+    row.append(details, actions);
+    list.append(row);
+  }
+}
+
 function expenseRow(expense) {
   const row = document.createElement('div');
   row.className = 'expense-item';
@@ -136,7 +200,7 @@ function expenseRow(expense) {
   title.textContent = expense.title;
   const meta = document.createElement('div');
   meta.className = 'expense-meta';
-  meta.textContent = `${expense.category} · ${new Date(expense.date).toLocaleDateString()}`;
+  meta.textContent = `${expense.category} · ${new Date(expense.date).toLocaleDateString()}${expense.recurringRule ? ' · Recurring' : ''}`;
   main.append(title, meta);
   if (expense.description) {
     const note = document.createElement('p');
@@ -163,7 +227,9 @@ function expenseRow(expense) {
   remove.textContent = 'Delete';
   remove.setAttribute('aria-label', `Delete ${expense.title}`);
   remove.addEventListener('click', async () => {
-    if (!confirm(`Delete "${expense.title}"?`)) return;
+    if (!confirm(expense.recurringRule
+      ? `Delete this "${expense.title}" entry? Future entries will still be added unless you pause its schedule.`
+      : `Delete "${expense.title}"?`)) return;
     remove.disabled = true;
     try {
       await api(`/api/expenses/${expense._id}`, { method: 'DELETE' });
@@ -210,6 +276,7 @@ async function loadExpenses(nextPage = 1) {
 async function refresh() {
   showError('list-error', '');
   try {
+    await loadRecurring();
     await Promise.all([loadStats(), loadExpenses(), loadBudget()]);
   } catch (error) {
     showError('list-error', error.message);
@@ -254,6 +321,29 @@ $('budget-clear').addEventListener('click', async () => {
     showError('budget-error', error.message);
   } finally {
     $('budget-clear').disabled = false;
+  }
+});
+$('recurring-form').addEventListener('submit', async event => {
+  event.preventDefault();
+  showError('recurring-error', '');
+  const submit = $('recurring-save');
+  submit.disabled = true;
+  try {
+    await api('/api/recurring', { method: 'POST', body: JSON.stringify({
+      title: $('recurring-title').value.trim(),
+      amount: Number($('recurring-amount').value),
+      category: $('recurring-category').value,
+      frequency: $('recurring-frequency').value,
+      startDate: $('recurring-start').value,
+      description: $('recurring-description').value.trim()
+    }) });
+    $('recurring-form').reset();
+    setRecurringToday();
+    await refresh();
+  } catch (error) {
+    showError('recurring-error', error.message);
+  } finally {
+    submit.disabled = false;
   }
 });
 $('filter-form').addEventListener('submit', async event => {
@@ -347,8 +437,13 @@ function setCurrentMonth() {
   $('budget-month').value = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
 }
 
+function setRecurringToday() {
+  $('recurring-start').value = localDate(new Date());
+}
+
 setToday();
 setCurrentMonth();
+setRecurringToday();
 if (token) {
   api('/api/auth/profile').then(profile => {
     user = profile;
