@@ -2,9 +2,17 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { randomUUID } = require('node:crypto');
 const mongoose = require('mongoose');
+const nodemailer = require('nodemailer');
 const { advance } = require('../services/recurring');
+const PasswordResetToken = require('../models/PasswordResetToken');
 
 process.env.JWT_SECRET = 'test-secret-that-is-at-least-thirty-two-characters';
+process.env.APP_BASE_URL = 'https://tracker.example.test';
+process.env.SMTP_HOST = 'smtp.example.test';
+process.env.SMTP_PORT = '587';
+process.env.SMTP_FROM = 'support@example.test';
+const sentMail = [];
+nodemailer.createTransport = () => ({ sendMail: async message => { sentMail.push(message); } });
 const { app } = require('../server');
 
 test('recurring cadence keeps the original monthly day', () => {
@@ -33,7 +41,9 @@ test('accounts own expenses, budgets, and recurring schedules', async () => {
     assert.equal((await request('/api/health')).status, 200);
     const home = await fetch(base);
     assert.equal(home.status, 200);
-    assert.match(await home.text(), /Smart Expense Tracker/);
+    const html = await home.text();
+    assert.match(html, /Smart Expense Tracker/);
+    assert.match(html, /Forgot password\?/);
     assert.equal((await request('/api/expenses')).status, 401);
     assert.equal((await request('/api/auth/register', 'POST', {})).status, 400);
     const first = await request('/api/auth/register', 'POST', { username: 'first', email: 'first@example.com', password: 'password123' });
@@ -107,6 +117,34 @@ test('accounts own expenses, budgets, and recurring schedules', async () => {
     assert.equal((await request(`/api/recurring/${recurring.data._id}`, 'DELETE', undefined, first.data.token)).status, 200);
     assert.equal((await request('/api/recurring', 'GET', undefined, first.data.token)).data.length, 0);
     assert.equal((await request('/api/expenses?category=Transportation', 'GET', undefined, first.data.token)).data.total, 3);
+    const unknownRecovery = await request('/api/auth/forgot-password', 'POST', { email: 'unknown@example.com' });
+    assert.equal(unknownRecovery.status, 200);
+    assert.equal(sentMail.length, 0);
+    const recovery = await request('/api/auth/forgot-password', 'POST', { email: 'first@example.com' });
+    assert.equal(recovery.status, 200);
+    assert.deepEqual(recovery.data, unknownRecovery.data);
+    assert.equal(sentMail.length, 1);
+    assert.equal(sentMail[0].to, 'first@example.com');
+    assert.match(sentMail[0].text, /https:\/\/tracker\.example\.test\/#reset=/);
+    const resetToken = /#reset=([a-f0-9]{64})/.exec(sentMail[0].text)?.[1];
+    assert.ok(resetToken);
+    assert.equal(JSON.stringify(recovery.data).includes(resetToken), false);
+    const storedReset = await PasswordResetToken.findOne({ user: first.data.user.id });
+    assert.notEqual(storedReset.tokenHash, resetToken);
+    assert.equal((await request('/api/auth/reset-password', 'POST', { token: resetToken, password: 'short' })).status, 400);
+    assert.equal((await request('/api/auth/reset-password', 'POST', { token: resetToken, password: 'new-password-123' })).status, 200);
+    assert.equal((await request('/api/auth/profile', 'GET', undefined, first.data.token)).status, 401);
+    assert.equal((await request('/api/auth/profile', 'GET', undefined, second.data.token)).status, 200);
+    assert.equal((await request('/api/auth/login', 'POST', { email: 'first@example.com', password: 'password123' })).status, 400);
+    assert.equal((await request('/api/auth/login', 'POST', { email: 'first@example.com', password: 'new-password-123' })).status, 200);
+    assert.equal((await request('/api/auth/reset-password', 'POST', { token: resetToken, password: 'again-password-123' })).status, 400);
+    assert.equal((await request('/api/auth/forgot-password', 'POST', { email: 'first@example.com' })).status, 200);
+    const expiredToken = /#reset=([a-f0-9]{64})/.exec(sentMail[1].text)?.[1];
+    await PasswordResetToken.updateOne({ user: first.data.user.id }, { $set: { expiresAt: new Date(Date.now() - 1000) } });
+    assert.equal((await request('/api/auth/reset-password', 'POST', { token: expiredToken, password: 'again-password-123' })).status, 400);
+    delete process.env.SMTP_HOST;
+    assert.equal((await request('/api/auth/forgot-password', 'POST', { email: 'first@example.com' })).status, 503);
+    process.env.SMTP_HOST = 'smtp.example.test';
   } finally {
     await mongoose.connection.dropDatabase();
     await mongoose.disconnect();

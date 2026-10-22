@@ -21,7 +21,7 @@
         <p>Record everyday expenses and get a simple view of your spending.</p>
       </div>
       <div class="card auth-card">
-        <div class="tabs" role="tablist" aria-label="Account">
+        <div id="auth-tabs" class="tabs" role="tablist" aria-label="Account">
           <button id="login-tab" class="tab active" type="button" aria-selected="true">Log in</button>
           <button id="register-tab" class="tab" type="button" aria-selected="false">Create account</button>
         </div>
@@ -33,6 +33,21 @@
           <p id="auth-error" class="error" role="alert" hidden></p>
           <button id="auth-submit" class="primary-button" type="submit">Log in</button>
         </form>
+        <button id="forgot-password" class="text-button auth-link" type="button">Forgot password?</button>
+        <form id="forgot-form" hidden>
+          <label>Email<input id="forgot-email" type="email" autocomplete="email" required></label>
+          <p id="forgot-error" class="error" role="alert" hidden></p>
+          <p id="forgot-message" class="muted" role="status" hidden></p>
+          <button id="forgot-submit" class="primary-button" type="submit">Send reset link</button>
+        </form>
+        <form id="reset-form" hidden>
+          <label>New password<input id="reset-password" type="password" autocomplete="new-password" minlength="8" maxlength="128" required></label>
+          <label>Confirm password<input id="reset-confirm" type="password" autocomplete="new-password" minlength="8" maxlength="128" required></label>
+          <p id="reset-error" class="error" role="alert" hidden></p>
+          <button id="reset-submit" class="primary-button" type="submit">Update password</button>
+        </form>
+        <p id="auth-message" class="muted" role="status" hidden></p>
+        <button id="back-to-login" class="text-button auth-link" type="button" hidden>Back to login</button>
       </div>
     </section>
 

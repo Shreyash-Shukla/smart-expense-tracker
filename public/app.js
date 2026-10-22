@@ -5,6 +5,7 @@ let user = null;
 let page = 1;
 let totalPages = 1;
 let authMode = 'login';
+let resetToken = new URLSearchParams(location.hash.slice(1)).get('reset');
 let editingId = null;
 let filters = { category: '', startDate: '', endDate: '' };
 let listRequestId = 0;
@@ -88,6 +89,12 @@ async function api(path, options = {}) {
 function setAuthMode(mode) {
   authMode = mode;
   const registering = mode === 'register';
+  $('auth-tabs').hidden = false;
+  $('auth-form').hidden = false;
+  $('forgot-form').hidden = true;
+  $('reset-form').hidden = true;
+  $('forgot-password').hidden = registering;
+  $('back-to-login').hidden = true;
   $('username-field').hidden = !registering;
   $('username').required = registering;
   $('password').autocomplete = registering ? 'new-password' : 'current-password';
@@ -98,6 +105,22 @@ function setAuthMode(mode) {
   $('login-tab').setAttribute('aria-selected', String(!registering));
   $('register-tab').setAttribute('aria-selected', String(registering));
   showError('auth-error', '');
+  showError('auth-message', '');
+}
+
+function showRecovery(mode) {
+  authMode = mode;
+  $('auth-tabs').hidden = true;
+  $('auth-form').hidden = true;
+  $('forgot-password').hidden = true;
+  $('forgot-form').hidden = mode !== 'forgot';
+  $('reset-form').hidden = mode !== 'reset';
+  $('back-to-login').hidden = false;
+  $('auth-title').textContent = mode === 'forgot' ? 'Reset your password' : 'Choose a new password';
+  showError('auth-message', '');
+  showError('forgot-error', '');
+  showError('forgot-message', '');
+  showError('reset-error', '');
 }
 
 async function loadStats() {
@@ -285,6 +308,54 @@ async function refresh() {
 
 $('login-tab').addEventListener('click', () => setAuthMode('login'));
 $('register-tab').addEventListener('click', () => setAuthMode('register'));
+$('forgot-password').addEventListener('click', () => {
+  $('forgot-email').value = $('email').value.trim();
+  showRecovery('forgot');
+});
+$('back-to-login').addEventListener('click', () => {
+  resetToken = null;
+  setAuthMode('login');
+});
+$('forgot-form').addEventListener('submit', async event => {
+  event.preventDefault();
+  showError('forgot-error', '');
+  showError('forgot-message', '');
+  const submit = $('forgot-submit');
+  submit.disabled = true;
+  try {
+    const result = await api('/api/auth/forgot-password', {
+      method: 'POST', body: JSON.stringify({ email: $('forgot-email').value.trim() })
+    });
+    showError('forgot-message', result.message);
+  } catch (error) {
+    showError('forgot-error', error.message);
+  } finally {
+    submit.disabled = false;
+  }
+});
+$('reset-form').addEventListener('submit', async event => {
+  event.preventDefault();
+  showError('reset-error', '');
+  if ($('reset-password').value !== $('reset-confirm').value) {
+    showError('reset-error', 'Passwords do not match.');
+    return;
+  }
+  const submit = $('reset-submit');
+  submit.disabled = true;
+  try {
+    await api('/api/auth/reset-password', {
+      method: 'POST', body: JSON.stringify({ token: resetToken, password: $('reset-password').value })
+    });
+    resetToken = null;
+    $('reset-form').reset();
+    setAuthMode('login');
+    showError('auth-message', 'Password updated. Log in with your new password.');
+  } catch (error) {
+    showError('reset-error', error.message);
+  } finally {
+    submit.disabled = false;
+  }
+});
 $('logout').addEventListener('click', signOut);
 $('cancel-edit').addEventListener('click', resetExpenseForm);
 $('budget-month').addEventListener('change', async () => {
@@ -444,7 +515,11 @@ function setRecurringToday() {
 setToday();
 setCurrentMonth();
 setRecurringToday();
-if (token) {
+if (resetToken) {
+  history.replaceState(null, '', `${location.pathname}${location.search}`);
+  signOut();
+  showRecovery('reset');
+} else if (token) {
   api('/api/auth/profile').then(profile => {
     user = profile;
     showView(true);

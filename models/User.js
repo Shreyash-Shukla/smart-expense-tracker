@@ -22,6 +22,7 @@ const userSchema = new mongoose.Schema({
     required: true,
     minlength: 8
   },
+  sessionVersion: { type: Number, default: 0 },
   createdAt: {
     type: Date,
     default: Date.now
