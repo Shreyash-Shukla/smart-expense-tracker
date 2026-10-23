@@ -28,7 +28,7 @@ async function syncRecurring(userId) {
         await Expense.updateOne(
           { recurringRule: rule._id, occurrenceDate },
           { $setOnInsert: {
-            user: rule.user, title: rule.title, amount: rule.amount, category: rule.category,
+            user: rule.user, title: rule.title, amount: rule.amount, currency: rule.currency || 'INR', category: rule.category,
             description: rule.description, date: new Date(`${occurrenceDate}T12:00:00.000Z`),
             recurringRule: rule._id, occurrenceDate
           } },

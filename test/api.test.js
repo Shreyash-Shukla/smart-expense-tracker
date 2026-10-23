@@ -5,6 +5,7 @@ const mongoose = require('mongoose');
 const nodemailer = require('nodemailer');
 const { advance } = require('../services/recurring');
 const PasswordResetToken = require('../models/PasswordResetToken');
+const Expense = require('../models/Expense');
 
 process.env.JWT_SECRET = 'test-secret-that-is-at-least-thirty-two-characters';
 process.env.APP_BASE_URL = 'https://tracker.example.test';
@@ -94,12 +95,47 @@ test('accounts own expenses, budgets, and recurring schedules', async () => {
     const clearedBudget = await request('/api/budgets/2025-04', 'DELETE', undefined, first.data.token);
     assert.equal(clearedBudget.status, 200);
     assert.equal(clearedBudget.data.budget, null);
+    await Expense.collection.updateOne({ _id: new mongoose.Types.ObjectId(dated.data._id) }, { $unset: { currency: '' } });
+    assert.equal((await request('/api/budgets/2025-04', 'GET', undefined, first.data.token)).data.spent, 100);
+    assert.equal((await request('/api/expenses?currency=INR', 'GET', undefined, first.data.token)).data.total, 2);
+    assert.equal((await request('/api/expenses', 'POST', {
+      title: 'Bad currency', amount: 10, currency: 'XYZ', category: 'Food'
+    }, first.data.token)).status, 400);
+    const usdExpense = await request('/api/expenses', 'POST', {
+      title: 'Coffee', amount: 10, currency: 'USD', category: 'Food'
+    }, first.data.token);
+    const eurExpense = await request('/api/expenses', 'POST', {
+      title: 'Lunch', amount: 20, currency: 'EUR', category: 'Food'
+    }, first.data.token);
+    assert.equal(usdExpense.status, 201);
+    assert.equal(eurExpense.status, 201);
+    assert.equal((await request('/api/expenses?currency=USD', 'GET', undefined, first.data.token)).data.total, 1);
+    const mixedStats = await request('/api/dashboard/stats', 'GET', undefined, first.data.token);
+    assert.equal(mixedStats.data.totalExpenses, 0);
+    assert.deepEqual(Object.fromEntries(mixedStats.data.totalsByCurrency.map(item => [item._id, item.total])), { EUR: 20, USD: 10 });
+    const foodBreakdown = await request('/api/dashboard/categories', 'GET', undefined, first.data.token);
+    assert.deepEqual(Object.fromEntries(foodBreakdown.data.filter(item => item._id.category === 'Food')
+      .map(item => [item._id.currency, item.total])), { EUR: 20, USD: 10 });
+    const currentMonth = new Date().toISOString().slice(0, 7);
+    assert.equal((await request(`/api/budgets/${currentMonth}?currency=XYZ`, 'GET', undefined, first.data.token)).status, 400);
+    const usdBudget = await request(`/api/budgets/${currentMonth}?currency=USD`, 'PUT', { amount: 15 }, first.data.token);
+    assert.equal(usdBudget.status, 200);
+    assert.equal(usdBudget.data.remaining, 5);
+    assert.equal((await request(`/api/budgets/${currentMonth}`, 'PUT', { amount: 100 }, first.data.token)).data.spent, 0);
+    assert.equal((await request(`/api/budgets/${currentMonth}?currency=USD`, 'GET', undefined, first.data.token)).data.budget, 15);
+    assert.equal((await request(`/api/budgets/${currentMonth}?currency=USD`, 'DELETE', undefined, first.data.token)).data.budget, null);
+    assert.equal((await request(`/api/budgets/${currentMonth}`, 'GET', undefined, first.data.token)).data.budget, 100);
+    const changedCurrency = await request(`/api/expenses/${usdExpense.data._id}`, 'PUT', {
+      title: 'Coffee', amount: 12, currency: 'GBP', category: 'Food'
+    }, first.data.token);
+    assert.equal(changedCurrency.data.currency, 'GBP');
+    assert.equal((await request('/api/expenses?currency=USD', 'GET', undefined, first.data.token)).data.total, 0);
     assert.equal((await request('/api/recurring')).status, 401);
     assert.equal((await request('/api/recurring', 'POST', { title: 'Bad', amount: 10, category: 'Bills', frequency: 'monthly', startDate: '2025-02-30' }, first.data.token)).status, 400);
     const start = new Date();
     start.setUTCDate(start.getUTCDate() - 2);
     const recurring = await request('/api/recurring', 'POST', {
-      title: 'Daily commute', amount: 25, category: 'Transportation', frequency: 'daily',
+      title: 'Daily commute', amount: 25, currency: 'USD', category: 'Transportation', frequency: 'daily',
       startDate: start.toISOString().slice(0, 10)
     }, first.data.token);
     assert.equal(recurring.status, 201);
@@ -109,6 +145,7 @@ test('accounts own expenses, budgets, and recurring schedules', async () => {
     const transport = await request('/api/expenses?category=Transportation', 'GET', undefined, first.data.token);
     assert.equal(transport.data.total, 3);
     assert.equal(transport.data.expenses.filter(item => item.recurringRule === recurring.data._id).length, 3);
+    assert.equal(transport.data.expenses.every(item => item.currency === 'USD'), true);
     assert.equal((await request('/api/expenses?category=Transportation', 'GET', undefined, second.data.token)).data.total, 0);
     assert.equal((await request(`/api/recurring/${recurring.data._id}`, 'PATCH', { active: false }, second.data.token)).status, 404);
     assert.equal((await request(`/api/recurring/${recurring.data._id}`, 'PATCH', { active: false }, first.data.token)).data.active, false);

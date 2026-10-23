@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { currencies } = require('../config/currencies');
 
 const expenseSchema = new mongoose.Schema({
   user: {
@@ -17,6 +18,7 @@ const expenseSchema = new mongoose.Schema({
     required: true,
     min: 0
   },
+  currency: { type: String, enum: currencies, default: 'INR' },
   category: {
     type: String,
     required: true,

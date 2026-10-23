@@ -53,19 +53,20 @@
 
     <section id="dashboard-view" hidden>
       <div class="page-heading">
-        <div><p class="eyebrow">OVERVIEW</p><h1 id="greeting">Your expenses</h1><p>Keep a record of what matters, one expense at a time.</p></div>
+        <div><p class="eyebrow">OVERVIEW</p><h1 id="greeting">Your expenses</h1><p>Track spending in each currency separately; amounts are not converted.</p></div>
       </div>
       <div class="summary-grid">
-        <div class="card summary-card"><span>Total over the past month</span><strong id="month-total">₹0.00</strong></div>
+        <div class="card summary-card"><span>Spending over the past month, by currency</span><strong id="month-total">₹0.00</strong></div>
         <div class="card summary-card"><span id="expense-count-label">Recorded expenses</span><strong id="expense-count">0</strong></div>
       </div>
       <section class="card budget-card" aria-labelledby="budget-heading">
         <div class="budget-heading">
           <div><h2 id="budget-heading">Monthly budget</h2><p class="muted">Plan a spending limit and track your progress.</p></div>
           <label>Month<input id="budget-month" type="month" required></label>
+          <label>Currency<select id="budget-currency" required></select></label>
         </div>
         <form id="budget-form" class="budget-form">
-          <label>Budget (₹)<input id="budget-amount" type="number" min="0.01" max="1000000000000" step="0.01" placeholder="Set a monthly limit" required></label>
+          <label>Budget<input id="budget-amount" type="number" min="0.01" max="1000000000000" step="0.01" placeholder="Set a monthly limit" required></label>
           <button id="budget-save" class="primary-button" type="submit">Save budget</button>
           <button id="budget-clear" class="text-button" type="button" hidden>Clear budget</button>
         </form>
@@ -78,7 +79,8 @@
         <p class="muted">Add a schedule for costs that repeat. Due entries appear in your history automatically when you use the app.</p>
         <form id="recurring-form" class="recurring-form">
           <label>What repeats?<input id="recurring-title" maxlength="100" placeholder="e.g. Rent" required></label>
-          <label>Amount (₹)<input id="recurring-amount" type="number" min="0" max="1000000000000" step="0.01" required></label>
+          <label>Amount<input id="recurring-amount" type="number" min="0" max="1000000000000" step="0.01" required></label>
+          <label>Currency<select id="recurring-currency" required></select></label>
           <label>Category<select id="recurring-category" required>
             <option>Food</option><option>Transportation</option><option>Entertainment</option><option>Shopping</option>
             <option>Bills</option><option>Healthcare</option><option>Education</option><option>Other</option>
@@ -98,9 +100,10 @@
           <form id="expense-form">
             <label>What was it for?<input id="expense-title" name="title" maxlength="100" placeholder="e.g. Groceries" required></label>
             <div class="form-row">
-              <label>Amount (₹)<input id="expense-amount" name="amount" type="number" min="0" step="0.01" placeholder="0.00" required></label>
-              <label>Date<input id="expense-date" name="date" type="date" required></label>
+              <label>Amount<input id="expense-amount" name="amount" type="number" min="0" step="0.01" placeholder="0.00" required></label>
+              <label>Currency<select id="expense-currency" name="currency" required></select></label>
             </div>
+            <label>Date<input id="expense-date" name="date" type="date" required></label>
             <label>Category<select id="expense-category" name="category" required>
               <option>Food</option><option>Transportation</option><option>Entertainment</option><option>Shopping</option>
               <option>Bills</option><option>Healthcare</option><option>Education</option><option>Other</option>
@@ -116,10 +119,13 @@
         <section class="card list-card" aria-labelledby="history-heading">
           <div class="section-heading"><div><h2 id="history-heading">Expense history</h2><p class="muted">Find and review your entries</p></div></div>
           <form id="filter-form" class="filter-form" aria-label="Filter expenses">
-            <label>Category<select id="filter-category" name="category">
-              <option value="">All categories</option><option>Food</option><option>Transportation</option><option>Entertainment</option><option>Shopping</option>
-              <option>Bills</option><option>Healthcare</option><option>Education</option><option>Other</option>
-            </select></label>
+            <div class="form-row">
+              <label>Category<select id="filter-category" name="category">
+                <option value="">All categories</option><option>Food</option><option>Transportation</option><option>Entertainment</option><option>Shopping</option>
+                <option>Bills</option><option>Healthcare</option><option>Education</option><option>Other</option>
+              </select></label>
+              <label>Currency<select id="filter-currency" name="currency"></select></label>
+            </div>
             <div class="form-row">
               <label>From<input id="filter-start" name="startDate" type="date"></label>
               <label>To<input id="filter-end" name="endDate" type="date"></label>

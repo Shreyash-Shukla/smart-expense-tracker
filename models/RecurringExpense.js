@@ -1,9 +1,11 @@
 const mongoose = require('mongoose');
+const { currencies } = require('../config/currencies');
 
 const recurringExpenseSchema = new mongoose.Schema({
   user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   title: { type: String, required: true, trim: true, maxlength: 100 },
   amount: { type: Number, required: true, min: 0 },
+  currency: { type: String, enum: currencies, default: 'INR' },
   category: { type: String, required: true, enum: ['Food', 'Transportation', 'Entertainment', 'Shopping', 'Bills', 'Healthcare', 'Education', 'Other'] },
   description: { type: String, trim: true, maxlength: 500, default: '' },
   frequency: { type: String, required: true, enum: ['daily', 'weekly', 'monthly'] },

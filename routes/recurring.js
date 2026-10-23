@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 const RecurringExpense = require('../models/RecurringExpense');
 const auth = require('../middleware/auth');
 const { advance, syncRecurring, syncRecurringMiddleware } = require('../services/recurring');
+const { currencies } = require('../config/currencies');
 
 const router = express.Router();
 router.use(auth);
@@ -25,20 +26,21 @@ router.get('/', syncRecurringMiddleware, async (req, res) => {
 });
 
 router.post('/', async (req, res) => {
-  const { title, amount, category, description = '', frequency, startDate } = req.body || {};
+  const { title, amount, currency = 'INR', category, description = '', frequency, startDate } = req.body || {};
   const today = new Date();
   const earliest = new Date(today);
   earliest.setUTCFullYear(earliest.getUTCFullYear() - 2);
   if (typeof title !== 'string' || !title.trim() || title.trim().length > 100 ||
       typeof amount !== 'number' || !Number.isFinite(amount) || amount < 0 || amount > 1e12 ||
-      !categories.includes(category) || typeof description !== 'string' || description.length > 500 ||
+      !categories.includes(category) || !currencies.includes(currency) ||
+      typeof description !== 'string' || description.length > 500 ||
       !['daily', 'weekly', 'monthly'].includes(frequency) || !validDate(startDate) ||
       startDate < earliest.toISOString().slice(0, 10)) {
     return res.status(400).json({ message: 'Invalid recurring expense details or start date more than two years ago' });
   }
   try {
     const rule = await RecurringExpense.create({
-      user: req.userId, title: title.trim(), amount, category, description, frequency,
+      user: req.userId, title: title.trim(), amount, currency, category, description, frequency,
       startDate, nextDate: startDate
     });
     await syncRecurring(req.userId);

@@ -1,5 +1,10 @@
 const $ = id => document.getElementById(id);
-const money = value => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(value);
+const currencyNames = { INR: 'Indian rupee', USD: 'US dollar', EUR: 'Euro', GBP: 'British pound',
+  CAD: 'Canadian dollar', AUD: 'Australian dollar', SGD: 'Singapore dollar',
+  AED: 'UAE dirham', CHF: 'Swiss franc' };
+const money = (value, currency = 'INR') => new Intl.NumberFormat('en-IN', {
+  style: 'currency', currency, currencyDisplay: currency === 'INR' ? 'symbol' : 'code'
+}).format(value);
 let token = localStorage.getItem('expense-token');
 let user = null;
 let page = 1;
@@ -7,7 +12,7 @@ let totalPages = 1;
 let authMode = 'login';
 let resetToken = new URLSearchParams(location.hash.slice(1)).get('reset');
 let editingId = null;
-let filters = { category: '', startDate: '', endDate: '' };
+let filters = { category: '', currency: '', startDate: '', endDate: '' };
 let listRequestId = 0;
 let budgetRequestId = 0;
 let recurringRequestId = 0;
@@ -27,10 +32,11 @@ function showView(signedIn) {
 function signOut() {
   resetExpenseForm();
   $('filter-form').reset();
-  filters = { category: '', startDate: '', endDate: '' };
+  filters = { category: '', currency: '', startDate: '', endDate: '' };
   budgetRequestId++;
   $('budget-form').reset();
   setCurrentMonth();
+  $('budget-currency').value = 'INR';
   $('budget-status').textContent = '';
   $('budget-progress').hidden = true;
   recurringRequestId++;
@@ -62,6 +68,7 @@ function editExpense(expense) {
   editingId = expense._id;
   $('expense-title').value = expense.title;
   $('expense-amount').value = expense.amount;
+  $('expense-currency').value = expense.currency || 'INR';
   $('expense-date').value = localDate(expense.date);
   $('expense-category').value = expense.category;
   $('expense-description').value = expense.description || '';
@@ -125,7 +132,15 @@ function showRecovery(mode) {
 
 async function loadStats() {
   const stats = await api('/api/dashboard/stats?period=month');
-  $('month-total').textContent = money(stats.totalExpenses);
+  const total = $('month-total');
+  total.replaceChildren();
+  const entries = stats.totalsByCurrency.length ? stats.totalsByCurrency : [{ _id: 'INR', total: 0 }];
+  for (const entry of entries) {
+    const line = document.createElement('span');
+    line.className = 'currency-total';
+    line.textContent = money(entry.total, entry._id);
+    total.append(line);
+  }
 }
 
 function renderBudget(data) {
@@ -134,7 +149,7 @@ function renderBudget(data) {
   const progress = $('budget-progress');
   progress.hidden = data.budget === null;
   if (data.budget === null) {
-    $('budget-status').textContent = `${money(data.spent)} spent in the selected month. Set a budget to track what remains.`;
+    $('budget-status').textContent = `${money(data.spent, data.currency)} spent in the selected month. Set a budget to track what remains.`;
     return;
   }
   const percent = Math.round(data.spent / data.budget * 100);
@@ -143,15 +158,16 @@ function renderBudget(data) {
   progress.classList.toggle('over', data.remaining < 0);
   $('budget-progress-fill').style.width = `${Math.min(percent, 100)}%`;
   $('budget-status').textContent = data.remaining >= 0
-    ? `${money(data.spent)} spent of ${money(data.budget)} · ${money(data.remaining)} left`
-    : `${money(data.spent)} spent of ${money(data.budget)} · ${money(-data.remaining)} over budget`;
+    ? `${money(data.spent, data.currency)} spent of ${money(data.budget, data.currency)} · ${money(data.remaining, data.currency)} left`
+    : `${money(data.spent, data.currency)} spent of ${money(data.budget, data.currency)} · ${money(-data.remaining, data.currency)} over budget`;
 }
 
 async function loadBudget() {
   const month = $('budget-month').value;
+  const currency = $('budget-currency').value;
   const requestId = ++budgetRequestId;
-  const data = await api(`/api/budgets/${month}`);
-  if (requestId === budgetRequestId && month === $('budget-month').value) renderBudget(data);
+  const data = await api(`/api/budgets/${month}?currency=${currency}`);
+  if (requestId === budgetRequestId && month === $('budget-month').value && currency === $('budget-currency').value) renderBudget(data);
 }
 
 async function loadRecurring() {
@@ -171,7 +187,7 @@ async function loadRecurring() {
     row.className = 'recurring-item';
     const details = document.createElement('div');
     const title = document.createElement('strong');
-    title.textContent = `${rule.title} · ${money(rule.amount)}`;
+    title.textContent = `${rule.title} · ${money(rule.amount, rule.currency || 'INR')}`;
     const meta = document.createElement('small');
     meta.textContent = `${rule.category} · ${rule.frequency} · ${rule.active ? `Next: ${rule.nextDate}` : 'Paused'}`;
     details.append(title, meta);
@@ -235,7 +251,7 @@ function expenseRow(expense) {
   side.className = 'expense-side';
   const amount = document.createElement('div');
   amount.className = 'expense-amount';
-  amount.textContent = money(expense.amount);
+  amount.textContent = money(expense.amount, expense.currency || 'INR');
   const actions = document.createElement('div');
   actions.className = 'expense-actions';
   const edit = document.createElement('button');
@@ -273,6 +289,7 @@ async function loadExpenses(nextPage = 1) {
   const requestId = ++listRequestId;
   const params = new URLSearchParams({ page: nextPage, limit: 10 });
   if (filters.category) params.set('category', filters.category);
+  if (filters.currency) params.set('currency', filters.currency);
   if (filters.startDate) params.set('startDate', new Date(`${filters.startDate}T00:00:00`).toISOString());
   if (filters.endDate) params.set('endDate', new Date(`${filters.endDate}T23:59:59.999`).toISOString());
   const data = await api(`/api/expenses?${params}`);
@@ -283,7 +300,7 @@ async function loadExpenses(nextPage = 1) {
   if (data.total === 0) {
     const empty = document.createElement('p');
     empty.className = 'empty';
-    empty.textContent = filters.category || filters.startDate || filters.endDate
+    empty.textContent = filters.category || filters.currency || filters.startDate || filters.endDate
       ? 'No expenses match these filters.'
       : 'No expenses yet. Add your first one to get started.';
     $('expense-list').append(empty);
@@ -291,7 +308,7 @@ async function loadExpenses(nextPage = 1) {
     data.expenses.forEach(expense => $('expense-list').append(expenseRow(expense)));
   }
   $('expense-count').textContent = data.total.toLocaleString();
-  $('expense-count-label').textContent = filters.category || filters.startDate || filters.endDate
+  $('expense-count-label').textContent = filters.category || filters.currency || filters.startDate || filters.endDate
     ? 'Matching expenses' : 'Recorded expenses';
   $('load-more').hidden = page >= totalPages;
 }
@@ -366,13 +383,21 @@ $('budget-month').addEventListener('change', async () => {
     showError('budget-error', error.message);
   }
 });
+$('budget-currency').addEventListener('change', async () => {
+  showError('budget-error', '');
+  try {
+    await loadBudget();
+  } catch (error) {
+    showError('budget-error', error.message);
+  }
+});
 $('budget-form').addEventListener('submit', async event => {
   event.preventDefault();
   showError('budget-error', '');
   const submit = $('budget-save');
   submit.disabled = true;
   try {
-    await api(`/api/budgets/${$('budget-month').value}`, {
+    await api(`/api/budgets/${$('budget-month').value}?currency=${$('budget-currency').value}`, {
       method: 'PUT', body: JSON.stringify({ amount: Number($('budget-amount').value) })
     });
     await loadBudget();
@@ -386,7 +411,7 @@ $('budget-clear').addEventListener('click', async () => {
   showError('budget-error', '');
   $('budget-clear').disabled = true;
   try {
-    await api(`/api/budgets/${$('budget-month').value}`, { method: 'DELETE' });
+    await api(`/api/budgets/${$('budget-month').value}?currency=${$('budget-currency').value}`, { method: 'DELETE' });
     await loadBudget();
   } catch (error) {
     showError('budget-error', error.message);
@@ -403,6 +428,7 @@ $('recurring-form').addEventListener('submit', async event => {
     await api('/api/recurring', { method: 'POST', body: JSON.stringify({
       title: $('recurring-title').value.trim(),
       amount: Number($('recurring-amount').value),
+      currency: $('recurring-currency').value,
       category: $('recurring-category').value,
       frequency: $('recurring-frequency').value,
       startDate: $('recurring-start').value,
@@ -425,7 +451,7 @@ $('filter-form').addEventListener('submit', async event => {
     showError('list-error', 'From date must be on or before To date.');
     return;
   }
-  filters = { category: $('filter-category').value, startDate, endDate };
+  filters = { category: $('filter-category').value, currency: $('filter-currency').value, startDate, endDate };
   showError('list-error', '');
   try {
     await loadExpenses();
@@ -435,7 +461,7 @@ $('filter-form').addEventListener('submit', async event => {
 });
 $('clear-filters').addEventListener('click', async () => {
   $('filter-form').reset();
-  filters = { category: '', startDate: '', endDate: '' };
+  filters = { category: '', currency: '', startDate: '', endDate: '' };
   showError('list-error', '');
   try {
     await loadExpenses();
@@ -485,6 +511,7 @@ $('expense-form').addEventListener('submit', async event => {
     await api(path, { method: editingId ? 'PUT' : 'POST', body: JSON.stringify({
       title: $('expense-title').value.trim(),
       amount: Number($('expense-amount').value),
+      currency: $('expense-currency').value,
       category: $('expense-category').value,
       date: `${$('expense-date').value}T12:00:00`,
       description: $('expense-description').value.trim()
@@ -512,6 +539,17 @@ function setRecurringToday() {
   $('recurring-start').value = localDate(new Date());
 }
 
+function fillCurrencyOptions() {
+  for (const id of ['expense-currency', 'recurring-currency', 'budget-currency', 'filter-currency']) {
+    const select = $(id);
+    if (id === 'filter-currency') select.add(new Option('All currencies', ''));
+    for (const [code, name] of Object.entries(currencyNames)) {
+      select.add(new Option(`${code} · ${name}`, code));
+    }
+  }
+}
+
+fillCurrencyOptions();
 setToday();
 setCurrentMonth();
 setRecurringToday();

@@ -2,30 +2,34 @@ const express = require('express');
 const Expense = require('../models/Expense');
 const auth = require('../middleware/auth');
 const { syncRecurringMiddleware } = require('../services/recurring');
+const { currencies } = require('../config/currencies');
 
 const router = express.Router();
 const categories = ['Food', 'Transportation', 'Entertainment', 'Shopping', 'Bills', 'Healthcare', 'Education', 'Other'];
 
 function expenseInput(body) {
-  const { title, amount, category, description, date } = body;
+  const { title, amount, currency, category, description, date } = body;
   if (typeof title !== 'string' || !title.trim() || title.trim().length > 100 ||
       typeof amount !== 'number' || !Number.isFinite(amount) || amount < 0 ||
+      (currency !== undefined && !currencies.includes(currency)) ||
       !categories.includes(category) ||
       (description !== undefined && (typeof description !== 'string' || description.length > 500)) ||
       (date !== undefined && (typeof date !== 'string' || Number.isNaN(Date.parse(date))))) {
     return null;
   }
-  return { title: title.trim(), amount, category, description: description || '', date: date ? new Date(date) : new Date() };
+  return { title: title.trim(), amount, ...(currency === undefined ? {} : { currency }), category,
+    description: description || '', date: date ? new Date(date) : new Date() };
 }
 
 // Get all expenses for a user
 router.get('/', auth, syncRecurringMiddleware, async (req, res) => {
   try {
-    const { category, startDate, endDate } = req.query;
+    const { category, currency, startDate, endDate } = req.query;
     const page = Number(req.query.page || 1);
     const limit = Number(req.query.limit || 10);
     if (!Number.isInteger(page) || page < 1 || !Number.isInteger(limit) || limit < 1 || limit > 100 ||
         (category && !categories.includes(category)) ||
+        (currency && !currencies.includes(currency)) ||
         (startDate && Number.isNaN(Date.parse(startDate))) ||
         (endDate && Number.isNaN(Date.parse(endDate)))) {
       return res.status(400).json({ message: 'Invalid filters' });
@@ -34,6 +38,7 @@ router.get('/', auth, syncRecurringMiddleware, async (req, res) => {
     const filter = { user: req.userId };
     
     if (category) filter.category = category;
+    if (currency) filter.currency = currency === 'INR' ? { $in: ['INR', null] } : currency;
     if (startDate || endDate) {
       filter.date = {};
       if (startDate) filter.date.$gte = new Date(startDate);

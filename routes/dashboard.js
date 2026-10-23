@@ -33,16 +33,18 @@ router.get('/stats', auth, syncRecurringMiddleware, async (req, res) => {
         startDate.setMonth(endDate.getMonth() - 1);
     }
 
-    // Total expenses
-    const totalExpenses = await Expense.aggregate([
+    // Keep currencies separate; older entries without a currency are INR.
+    const totalsByCurrency = await Expense.aggregate([
       { $match: { user: userId, date: { $gte: startDate, $lte: endDate } } },
-      { $group: { _id: null, total: { $sum: '$amount' } } }
+      { $group: { _id: { $ifNull: ['$currency', 'INR'] }, total: { $sum: '$amount' } } },
+      { $sort: { _id: 1 } }
     ]);
 
     // Expenses by category
     const expensesByCategory = await Expense.aggregate([
       { $match: { user: userId, date: { $gte: startDate, $lte: endDate } } },
-      { $group: { _id: '$category', total: { $sum: '$amount' }, count: { $sum: 1 } } },
+      { $group: { _id: { category: '$category', currency: { $ifNull: ['$currency', 'INR'] } },
+        total: { $sum: '$amount' }, count: { $sum: 1 } } },
       { $sort: { total: -1 } }
     ]);
 
@@ -51,11 +53,12 @@ router.get('/stats', auth, syncRecurringMiddleware, async (req, res) => {
       { $match: { user: userId, date: { $gte: startDate, $lte: endDate } } },
       {
         $group: {
-          _id: { $dateToString: { format: '%Y-%m-%d', date: '$date' } },
+          _id: { date: { $dateToString: { format: '%Y-%m-%d', date: '$date' } },
+            currency: { $ifNull: ['$currency', 'INR'] } },
           total: { $sum: '$amount' }
         }
       },
-      { $sort: { '_id': 1 } }
+      { $sort: { '_id.date': 1, '_id.currency': 1 } }
     ]);
 
     // Recent expenses
@@ -64,7 +67,9 @@ router.get('/stats', auth, syncRecurringMiddleware, async (req, res) => {
       .limit(5);
 
     res.json({
-      totalExpenses: totalExpenses[0]?.total || 0,
+      totalExpenses: totalsByCurrency.find(item => item._id === 'INR')?.total || 0,
+      totalExpensesCurrency: 'INR',
+      totalsByCurrency,
       expensesByCategory,
       dailyExpenses,
       recentExpenses
@@ -105,7 +110,7 @@ router.get('/categories', auth, syncRecurringMiddleware, async (req, res) => {
       { $match: { user: userId, date: { $gte: startDate, $lte: endDate } } },
       {
         $group: {
-          _id: '$category',
+          _id: { category: '$category', currency: { $ifNull: ['$currency', 'INR'] } },
           total: { $sum: '$amount' },
           count: { $sum: 1 },
           average: { $avg: '$amount' }
