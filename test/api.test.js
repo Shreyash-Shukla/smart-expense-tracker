@@ -45,6 +45,8 @@ test('accounts own expenses, budgets, and recurring schedules', async () => {
     const html = await home.text();
     assert.match(html, /Smart Expense Tracker/);
     assert.match(html, /Forgot password\?/);
+    assert.match(html, /Spending insights/);
+    assert.match(html, /Export CSV/);
     assert.equal((await request('/api/expenses')).status, 401);
     assert.equal((await request('/api/auth/register', 'POST', {})).status, 400);
     const first = await request('/api/auth/register', 'POST', { username: 'first', email: 'first@example.com', password: 'password123' });
@@ -72,6 +74,8 @@ test('accounts own expenses, budgets, and recurring schedules', async () => {
     assert.equal(filtered.data.total, 1);
     assert.equal(filtered.data.expenses[0]._id, dated.data._id);
     assert.equal((await request('/api/expenses?category=Food', 'GET', undefined, first.data.token)).data.total, 0);
+    assert.equal((await request('/api/expenses', 'POST', { title: 'Bad cents', amount: 1.234, category: 'Food' }, first.data.token)).status, 400);
+    assert.equal((await request('/api/expenses/not-an-id', 'GET', undefined, first.data.token)).status, 400);
     assert.equal((await request('/api/budgets/2025-04')).status, 401);
     assert.equal((await request('/api/budgets/2025-13', 'GET', undefined, first.data.token)).status, 400);
     assert.equal((await request('/api/budgets/2025-04', 'PUT', { amount: -1 }, first.data.token)).status, 400);
@@ -109,6 +113,15 @@ test('accounts own expenses, budgets, and recurring schedules', async () => {
     }, first.data.token);
     assert.equal(usdExpense.status, 201);
     assert.equal(eurExpense.status, 201);
+    const exported = await fetch(`${base}/api/expenses/export.csv?currency=USD`, {
+      headers: { Authorization: `Bearer ${first.data.token}` }
+    });
+    assert.equal(exported.status, 200);
+    assert.match(exported.headers.get('content-type'), /text\/csv/);
+    const csv = await exported.text();
+    assert.match(csv, /Coffee/);
+    assert.doesNotMatch(csv, /Lunch/);
+    assert.equal((await request('/api/expenses/export.csv?currency=XYZ', 'GET', undefined, first.data.token)).status, 400);
     assert.equal((await request('/api/expenses?currency=USD', 'GET', undefined, first.data.token)).data.total, 1);
     const mixedStats = await request('/api/dashboard/stats', 'GET', undefined, first.data.token);
     assert.equal(mixedStats.data.totalExpenses, 0);
@@ -116,6 +129,8 @@ test('accounts own expenses, budgets, and recurring schedules', async () => {
     const foodBreakdown = await request('/api/dashboard/categories', 'GET', undefined, first.data.token);
     assert.deepEqual(Object.fromEntries(foodBreakdown.data.filter(item => item._id.category === 'Food')
       .map(item => [item._id.currency, item.total])), { EUR: 20, USD: 10 });
+    assert.equal((await request('/api/dashboard/stats?period=week', 'GET', undefined, first.data.token)).status, 200);
+    assert.equal((await request('/api/dashboard/stats?period=year', 'GET', undefined, first.data.token)).status, 200);
     const currentMonth = new Date().toISOString().slice(0, 7);
     assert.equal((await request(`/api/budgets/${currentMonth}?currency=XYZ`, 'GET', undefined, first.data.token)).status, 400);
     const usdBudget = await request(`/api/budgets/${currentMonth}?currency=USD`, 'PUT', { amount: 15 }, first.data.token);
@@ -150,6 +165,17 @@ test('accounts own expenses, budgets, and recurring schedules', async () => {
     assert.equal((await request(`/api/recurring/${recurring.data._id}`, 'PATCH', { active: false }, second.data.token)).status, 404);
     assert.equal((await request(`/api/recurring/${recurring.data._id}`, 'PATCH', { active: false }, first.data.token)).data.active, false);
     assert.equal((await request(`/api/recurring/${recurring.data._id}`, 'PATCH', { active: true }, first.data.token)).data.active, true);
+    assert.equal((await request('/api/expenses?category=Transportation', 'GET', undefined, first.data.token)).data.total, 3);
+    const future = new Date();
+    future.setUTCDate(future.getUTCDate() + 2);
+    const updateRecurring = { title: 'Updated commute', amount: 30, currency: 'EUR', category: 'Transportation',
+      frequency: 'weekly', startDate: future.toISOString().slice(0, 10), description: 'Train' };
+    assert.equal((await request(`/api/recurring/${recurring.data._id}`, 'PUT', updateRecurring, second.data.token)).status, 404);
+    assert.equal((await request(`/api/recurring/${recurring.data._id}`, 'PUT', { ...updateRecurring, amount: 1.234 }, first.data.token)).status, 400);
+    const updatedRecurring = await request(`/api/recurring/${recurring.data._id}`, 'PUT', updateRecurring, first.data.token);
+    assert.equal(updatedRecurring.status, 200);
+    assert.equal(updatedRecurring.data.title, 'Updated commute');
+    assert.equal(updatedRecurring.data.nextDate, updateRecurring.startDate);
     assert.equal((await request('/api/expenses?category=Transportation', 'GET', undefined, first.data.token)).data.total, 3);
     assert.equal((await request(`/api/recurring/${recurring.data._id}`, 'DELETE', undefined, first.data.token)).status, 200);
     assert.equal((await request('/api/recurring', 'GET', undefined, first.data.token)).data.length, 0);

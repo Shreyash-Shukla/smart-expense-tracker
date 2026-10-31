@@ -12,8 +12,10 @@ let totalPages = 1;
 let authMode = 'login';
 let resetToken = new URLSearchParams(location.hash.slice(1)).get('reset');
 let editingId = null;
+let editingRecurringId = null;
 let filters = { category: '', currency: '', startDate: '', endDate: '' };
 let listRequestId = 0;
+let statsRequestId = 0;
 let budgetRequestId = 0;
 let recurringRequestId = 0;
 
@@ -30,6 +32,8 @@ function showView(signedIn) {
 }
 
 function signOut() {
+  listRequestId++;
+  statsRequestId++;
   resetExpenseForm();
   $('filter-form').reset();
   filters = { category: '', currency: '', startDate: '', endDate: '' };
@@ -40,9 +44,9 @@ function signOut() {
   $('budget-status').textContent = '';
   $('budget-progress').hidden = true;
   recurringRequestId++;
-  $('recurring-form').reset();
-  setRecurringToday();
+  resetRecurringForm();
   $('recurring-list').replaceChildren();
+  $('insights-list').replaceChildren();
   token = null;
   user = null;
   localStorage.removeItem('expense-token');
@@ -52,6 +56,10 @@ function signOut() {
 function localDate(date) {
   const value = new Date(date);
   return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}-${String(value.getDate()).padStart(2, '0')}`;
+}
+
+function expenseDate(date) {
+  return new Date(date).toISOString().slice(0, 10);
 }
 
 function resetExpenseForm() {
@@ -64,12 +72,37 @@ function resetExpenseForm() {
   showError('expense-error', '');
 }
 
+function resetRecurringForm() {
+  editingRecurringId = null;
+  $('recurring-form').reset();
+  setRecurringToday();
+  $('recurring-save').textContent = 'Add schedule';
+  $('recurring-cancel').hidden = true;
+  showError('recurring-error', '');
+}
+
+function editRecurring(rule) {
+  editingRecurringId = rule._id;
+  $('recurring-title').value = rule.title;
+  $('recurring-amount').value = rule.amount;
+  $('recurring-currency').value = rule.currency || 'INR';
+  $('recurring-category').value = rule.category;
+  $('recurring-frequency').value = rule.frequency;
+  $('recurring-start').value = rule.startDate;
+  $('recurring-description').value = rule.description || '';
+  $('recurring-save').textContent = 'Update schedule';
+  $('recurring-cancel').hidden = false;
+  showError('recurring-error', '');
+  $('recurring-form').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  $('recurring-title').focus({ preventScroll: true });
+}
+
 function editExpense(expense) {
   editingId = expense._id;
   $('expense-title').value = expense.title;
   $('expense-amount').value = expense.amount;
   $('expense-currency').value = expense.currency || 'INR';
-  $('expense-date').value = localDate(expense.date);
+  $('expense-date').value = expenseDate(expense.date);
   $('expense-category').value = expense.category;
   $('expense-description').value = expense.description || '';
   $('add-heading').textContent = 'Edit expense';
@@ -131,7 +164,11 @@ function showRecovery(mode) {
 }
 
 async function loadStats() {
-  const stats = await api('/api/dashboard/stats?period=month');
+  const requestId = ++statsRequestId;
+  const period = $('insights-period').value;
+  const stats = await api(`/api/dashboard/stats?period=${period}`);
+  if (requestId !== statsRequestId || period !== $('insights-period').value) return;
+  $('month-total').previousElementSibling.textContent = `Spending over the past ${period}, by currency`;
   const total = $('month-total');
   total.replaceChildren();
   const entries = stats.totalsByCurrency.length ? stats.totalsByCurrency : [{ _id: 'INR', total: 0 }];
@@ -140,6 +177,83 @@ async function loadStats() {
     line.className = 'currency-total';
     line.textContent = money(entry.total, entry._id);
     total.append(line);
+  }
+  renderInsights(stats, period);
+}
+
+function insightBar(label, value, max, currency) {
+  const row = document.createElement('div');
+  row.className = 'insight-row';
+  const heading = document.createElement('div');
+  heading.className = 'insight-row-heading';
+  const name = document.createElement('span');
+  name.textContent = label;
+  const amount = document.createElement('strong');
+  amount.textContent = money(value, currency);
+  heading.append(name, amount);
+  const track = document.createElement('div');
+  track.className = 'insight-track';
+  const fill = document.createElement('span');
+  fill.style.width = `${max ? value / max * 100 : 0}%`;
+  track.append(fill);
+  row.append(heading, track);
+  return row;
+}
+
+function trendBucket(date, period) {
+  if (period === 'year') return date.slice(0, 7);
+  if (period === 'week') return date;
+  const day = new Date(`${date}T12:00:00.000Z`);
+  day.setUTCDate(day.getUTCDate() - day.getUTCDay());
+  return day.toISOString().slice(0, 10);
+}
+
+function renderInsights(stats, period) {
+  const list = $('insights-list');
+  list.replaceChildren();
+  if (!stats.totalsByCurrency.length) {
+    const empty = document.createElement('p');
+    empty.className = 'empty';
+    empty.textContent = 'Add expenses to see your spending patterns.';
+    list.append(empty);
+    return;
+  }
+  for (const total of stats.totalsByCurrency) {
+    const currency = total._id;
+    const section = document.createElement('section');
+    section.className = 'insight-currency';
+    const heading = document.createElement('h3');
+    heading.textContent = `${currency} · ${money(total.total, currency)}`;
+    section.append(heading);
+    const columns = document.createElement('div');
+    columns.className = 'insight-columns';
+    const categories = document.createElement('div');
+    const categoryHeading = document.createElement('h4');
+    categoryHeading.textContent = 'By category';
+    categories.append(categoryHeading);
+    const categoryEntries = stats.expensesByCategory.filter(item => item._id.currency === currency)
+      .sort((a, b) => b.total - a.total);
+    const categoryMax = Math.max(...categoryEntries.map(item => item.total), 0);
+    for (const item of categoryEntries) categories.append(insightBar(item._id.category, item.total, categoryMax, currency));
+    const trend = document.createElement('div');
+    const trendHeading = document.createElement('h4');
+    trendHeading.textContent = period === 'year' ? 'By month' : period === 'week' ? 'By day' : 'By week';
+    trend.append(trendHeading);
+    const buckets = new Map();
+    for (const item of stats.dailyExpenses.filter(item => item._id.currency === currency)) {
+      const key = trendBucket(item._id.date, period);
+      buckets.set(key, (buckets.get(key) || 0) + item.total);
+    }
+    const trendMax = Math.max(...buckets.values(), 0);
+    for (const [date, value] of buckets) {
+      const label = period === 'year'
+        ? new Date(`${date}-01T12:00:00.000Z`).toLocaleDateString(undefined, { month: 'short', year: 'numeric', timeZone: 'UTC' })
+        : new Date(`${date}T12:00:00.000Z`).toLocaleDateString(undefined, { month: 'short', day: 'numeric', timeZone: 'UTC' });
+      trend.append(insightBar(label, value, trendMax, currency));
+    }
+    columns.append(categories, trend);
+    section.append(columns);
+    list.append(section);
   }
 }
 
@@ -193,6 +307,11 @@ async function loadRecurring() {
     details.append(title, meta);
     const actions = document.createElement('div');
     actions.className = 'recurring-actions';
+    const edit = document.createElement('button');
+    edit.type = 'button';
+    edit.textContent = 'Edit';
+    edit.setAttribute('aria-label', `Edit ${rule.title} schedule`);
+    edit.addEventListener('click', () => editRecurring(rule));
     const toggle = document.createElement('button');
     toggle.type = 'button';
     toggle.textContent = rule.active ? 'Pause' : 'Resume';
@@ -217,13 +336,14 @@ async function loadRecurring() {
       remove.disabled = true;
       try {
         await api(`/api/recurring/${rule._id}`, { method: 'DELETE' });
+        if (editingRecurringId === rule._id) resetRecurringForm();
         await refresh();
       } catch (error) {
         showError('recurring-error', error.message);
         remove.disabled = false;
       }
     });
-    actions.append(toggle, remove);
+    actions.append(edit, toggle, remove);
     row.append(details, actions);
     list.append(row);
   }
@@ -239,7 +359,7 @@ function expenseRow(expense) {
   title.textContent = expense.title;
   const meta = document.createElement('div');
   meta.className = 'expense-meta';
-  meta.textContent = `${expense.category} · ${new Date(expense.date).toLocaleDateString()}${expense.recurringRule ? ' · Recurring' : ''}`;
+  meta.textContent = `${expense.category} · ${new Date(expense.date).toLocaleDateString(undefined, { timeZone: 'UTC' })}${expense.recurringRule ? ' · Recurring' : ''}`;
   main.append(title, meta);
   if (expense.description) {
     const note = document.createElement('p');
@@ -290,8 +410,8 @@ async function loadExpenses(nextPage = 1) {
   const params = new URLSearchParams({ page: nextPage, limit: 10 });
   if (filters.category) params.set('category', filters.category);
   if (filters.currency) params.set('currency', filters.currency);
-  if (filters.startDate) params.set('startDate', new Date(`${filters.startDate}T00:00:00`).toISOString());
-  if (filters.endDate) params.set('endDate', new Date(`${filters.endDate}T23:59:59.999`).toISOString());
+  if (filters.startDate) params.set('startDate', `${filters.startDate}T00:00:00.000Z`);
+  if (filters.endDate) params.set('endDate', `${filters.endDate}T23:59:59.999Z`);
   const data = await api(`/api/expenses?${params}`);
   if (requestId !== listRequestId) return;
   page = nextPage;
@@ -375,6 +495,10 @@ $('reset-form').addEventListener('submit', async event => {
 });
 $('logout').addEventListener('click', signOut);
 $('cancel-edit').addEventListener('click', resetExpenseForm);
+$('recurring-cancel').addEventListener('click', resetRecurringForm);
+$('insights-period').addEventListener('change', async () => {
+  try { await loadStats(); } catch (error) { showError('list-error', error.message); }
+});
 $('budget-month').addEventListener('change', async () => {
   showError('budget-error', '');
   try {
@@ -425,7 +549,8 @@ $('recurring-form').addEventListener('submit', async event => {
   const submit = $('recurring-save');
   submit.disabled = true;
   try {
-    await api('/api/recurring', { method: 'POST', body: JSON.stringify({
+    const path = editingRecurringId ? `/api/recurring/${editingRecurringId}` : '/api/recurring';
+    await api(path, { method: editingRecurringId ? 'PUT' : 'POST', body: JSON.stringify({
       title: $('recurring-title').value.trim(),
       amount: Number($('recurring-amount').value),
       currency: $('recurring-currency').value,
@@ -434,8 +559,7 @@ $('recurring-form').addEventListener('submit', async event => {
       startDate: $('recurring-start').value,
       description: $('recurring-description').value.trim()
     }) });
-    $('recurring-form').reset();
-    setRecurringToday();
+    resetRecurringForm();
     await refresh();
   } catch (error) {
     showError('recurring-error', error.message);
@@ -467,6 +591,34 @@ $('clear-filters').addEventListener('click', async () => {
     await loadExpenses();
   } catch (error) {
     showError('list-error', error.message);
+  }
+});
+$('export-expenses').addEventListener('click', async () => {
+  showError('list-error', '');
+  const button = $('export-expenses');
+  button.disabled = true;
+  try {
+    const params = new URLSearchParams();
+    if (filters.category) params.set('category', filters.category);
+    if (filters.currency) params.set('currency', filters.currency);
+    if (filters.startDate) params.set('startDate', `${filters.startDate}T00:00:00.000Z`);
+    if (filters.endDate) params.set('endDate', `${filters.endDate}T23:59:59.999Z`);
+    const response = await fetch(`/api/expenses/export.csv?${params}`, { headers: { Authorization: `Bearer ${token}` } });
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      if (response.status === 401) signOut();
+      throw new Error(data.message || 'Could not export expenses');
+    }
+    const url = URL.createObjectURL(await response.blob());
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'expenses.csv';
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  } catch (error) {
+    showError('list-error', error.message);
+  } finally {
+    button.disabled = false;
   }
 });
 $('load-more').addEventListener('click', async () => {
@@ -513,7 +665,7 @@ $('expense-form').addEventListener('submit', async event => {
       amount: Number($('expense-amount').value),
       currency: $('expense-currency').value,
       category: $('expense-category').value,
-      date: `${$('expense-date').value}T12:00:00`,
+      date: `${$('expense-date').value}T12:00:00.000Z`,
       description: $('expense-description').value.trim()
     }) });
     resetExpenseForm();

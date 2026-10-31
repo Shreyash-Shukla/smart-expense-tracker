@@ -59,6 +59,12 @@
         <div class="card summary-card"><span>Spending over the past month, by currency</span><strong id="month-total">₹0.00</strong></div>
         <div class="card summary-card"><span id="expense-count-label">Recorded expenses</span><strong id="expense-count">0</strong></div>
       </div>
+      <section class="card insights-card" aria-labelledby="insights-heading">
+        <div class="insights-heading"><div><h2 id="insights-heading">Spending insights</h2><p class="muted">Category totals stay separate by currency.</p></div>
+          <label>Period<select id="insights-period"><option value="month">Past month</option><option value="week">Past week</option><option value="year">Past year</option></select></label>
+        </div>
+        <div id="insights-list" class="insights-list" aria-live="polite"></div>
+      </section>
       <section class="card budget-card" aria-labelledby="budget-heading">
         <div class="budget-heading">
           <div><h2 id="budget-heading">Monthly budget</h2><p class="muted">Plan a spending limit and track your progress.</p></div>
@@ -89,6 +95,7 @@
           <label>First date<input id="recurring-start" type="date" required></label>
           <label>Note <span class="muted">(optional)</span><input id="recurring-description" maxlength="500"></label>
           <button id="recurring-save" class="primary-button" type="submit">Add schedule</button>
+          <button id="recurring-cancel" class="secondary-button" type="button" hidden>Cancel edit</button>
         </form>
         <p id="recurring-error" class="error" role="alert" hidden></p>
         <div id="recurring-list" class="recurring-list"></div>
@@ -117,7 +124,7 @@
           </form>
         </section>
         <section class="card list-card" aria-labelledby="history-heading">
-          <div class="section-heading"><div><h2 id="history-heading">Expense history</h2><p class="muted">Find and review your entries</p></div></div>
+          <div class="section-heading"><div><h2 id="history-heading">Expense history</h2><p class="muted">Find and review your entries</p></div><button id="export-expenses" class="secondary-button" type="button">Export CSV</button></div>
           <form id="filter-form" class="filter-form" aria-label="Filter expenses">
             <div class="form-row">
               <label>Category<select id="filter-category" name="category">

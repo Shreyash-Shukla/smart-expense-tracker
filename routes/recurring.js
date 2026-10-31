@@ -16,6 +16,29 @@ function validDate(value) {
     new Date(`${value}T12:00:00.000Z`).toISOString().slice(0, 10) === value;
 }
 
+function recurringInput(body) {
+  const { title, amount, currency = 'INR', category, description = '', frequency, startDate } = body || {};
+  const earliest = new Date();
+  earliest.setUTCFullYear(earliest.getUTCFullYear() - 2);
+  if (typeof title !== 'string' || !title.trim() || title.trim().length > 100 ||
+      typeof amount !== 'number' || !Number.isFinite(amount) || amount < 0 || amount > 1e12 ||
+      Math.abs(amount * 100 - Math.round(amount * 100)) > 1e-8 ||
+      !categories.includes(category) || !currencies.includes(currency) ||
+      typeof description !== 'string' || description.length > 500 ||
+      !['daily', 'weekly', 'monthly'].includes(frequency) || !validDate(startDate) ||
+      startDate < earliest.toISOString().slice(0, 10)) return null;
+  return { title: title.trim(), amount: Math.round(amount * 100) / 100, currency,
+    category, description, frequency, startDate };
+}
+
+function nextDueDate(startDate, frequency) {
+  const today = new Date().toISOString().slice(0, 10);
+  const anchorDay = Number(startDate.slice(8, 10));
+  let date = startDate;
+  while (date < today) date = advance(date, frequency, anchorDay);
+  return date;
+}
+
 router.get('/', syncRecurringMiddleware, async (req, res) => {
   try {
     res.json(await RecurringExpense.find({ user: req.userId }).sort({ active: -1, startDate: -1 }));
@@ -26,28 +49,36 @@ router.get('/', syncRecurringMiddleware, async (req, res) => {
 });
 
 router.post('/', async (req, res) => {
-  const { title, amount, currency = 'INR', category, description = '', frequency, startDate } = req.body || {};
-  const today = new Date();
-  const earliest = new Date(today);
-  earliest.setUTCFullYear(earliest.getUTCFullYear() - 2);
-  if (typeof title !== 'string' || !title.trim() || title.trim().length > 100 ||
-      typeof amount !== 'number' || !Number.isFinite(amount) || amount < 0 || amount > 1e12 ||
-      !categories.includes(category) || !currencies.includes(currency) ||
-      typeof description !== 'string' || description.length > 500 ||
-      !['daily', 'weekly', 'monthly'].includes(frequency) || !validDate(startDate) ||
-      startDate < earliest.toISOString().slice(0, 10)) {
+  const input = recurringInput(req.body);
+  if (!input) {
     return res.status(400).json({ message: 'Invalid recurring expense details or start date more than two years ago' });
   }
   try {
     const rule = await RecurringExpense.create({
-      user: req.userId, title: title.trim(), amount, currency, category, description, frequency,
-      startDate, nextDate: startDate
+      user: req.userId, ...input, nextDate: input.startDate
     });
     await syncRecurring(req.userId);
     res.status(201).json(await RecurringExpense.findById(rule._id));
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Could not create recurring expense' });
+  }
+});
+
+router.put('/:id', async (req, res) => {
+  if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ message: 'Invalid recurring expense ID' });
+  const input = recurringInput(req.body);
+  if (!input) return res.status(400).json({ message: 'Invalid recurring expense details or start date more than two years ago' });
+  try {
+    const rule = await RecurringExpense.findOne({ _id: req.params.id, user: req.userId });
+    if (!rule) return res.status(404).json({ message: 'Recurring expense not found' });
+    Object.assign(rule, input, { nextDate: nextDueDate(input.startDate, input.frequency) });
+    await rule.save();
+    if (rule.active) await syncRecurring(req.userId);
+    res.json(rule);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Could not update recurring expense' });
   }
 });
 
