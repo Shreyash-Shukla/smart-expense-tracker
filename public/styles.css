@@ -65,6 +65,14 @@ textarea { resize: vertical; }
 .budget-progress { height: 10px; margin-top: 12px; border-radius: 999px; background: #e4eee8; overflow: hidden; }
 .budget-progress span { display: block; width: 0; height: 100%; background: #177a60; transition: width .2s ease; }
 .budget-progress.over span { background: #ad3434; }
+.category-budget-heading { margin-top: 26px; padding-top: 22px; border-top: 1px solid #e1eae5; }
+.category-budget-heading h3 { margin: 0; font-size: 17px; }
+.category-budget-heading p { margin: 5px 0 0; font-size: 14px; }
+.category-budget-list { margin-top: 18px; border-top: 1px solid #edf1ee; }
+.category-budget-item { display: flex; justify-content: space-between; gap: 16px; padding: 11px 0; border-bottom: 1px solid #edf1ee; font-size: 14px; }
+.category-budget-item span:first-child { font-weight: 700; }
+.category-budget-item span:last-child { text-align: right; }
+.over-budget { color: #ad3434; font-weight: 700; }
 .recurring-card { padding: 26px 30px; margin-bottom: 20px; }
 .recurring-card > p { margin: 6px 0 0; font-size: 14px; }
 .recurring-form { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 18px 0; align-items: end; }

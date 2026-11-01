@@ -46,6 +46,7 @@ test('accounts own expenses, budgets, and recurring schedules', async () => {
     assert.match(html, /Smart Expense Tracker/);
     assert.match(html, /Forgot password\?/);
     assert.match(html, /Spending insights/);
+    assert.match(html, /Category limits/);
     assert.match(html, /Export CSV/);
     assert.equal((await request('/api/expenses')).status, 401);
     assert.equal((await request('/api/auth/register', 'POST', {})).status, 400);
@@ -90,6 +91,26 @@ test('accounts own expenses, budgets, and recurring schedules', async () => {
     assert.equal((await request('/api/budgets/2025-04', 'GET', undefined, second.data.token)).data.budget, null);
     const changedBudget = await request('/api/budgets/2025-04', 'PUT', { amount: 80 }, first.data.token);
     assert.equal(changedBudget.data.remaining, -20);
+    assert.equal(changedBudget.data.categories.find(item => item.category === 'Bills').spent, 100);
+    assert.equal((await request('/api/budgets/2025-04/categories/Unknown', 'PUT', { amount: 50 }, first.data.token)).status, 400);
+    assert.equal((await request('/api/budgets/2025-04/categories/Bills', 'PUT', { amount: 1.234 }, first.data.token)).status, 400);
+    const categoryLimit = await request('/api/budgets/2025-04/categories/Bills', 'PUT', { amount: 90 }, first.data.token);
+    assert.equal(categoryLimit.status, 200);
+    assert.deepEqual(categoryLimit.data.categories.find(item => item.category === 'Bills'),
+      { category: 'Bills', budget: 90, spent: 100, remaining: -10 });
+    assert.equal(categoryLimit.data.budget, 80);
+    assert.equal((await request('/api/budgets/2025-04', 'GET', undefined, second.data.token)).data.categories
+      .find(item => item.category === 'Bills').budget, null);
+    const otherCategoryLimit = await request('/api/budgets/2025-04/categories/Food', 'PUT', { amount: 25 }, first.data.token);
+    assert.equal(otherCategoryLimit.data.categories.find(item => item.category === 'Food').spent, 0);
+    assert.equal((await request('/api/budgets/2025-04/categories/Bills', 'PUT', { amount: 120 }, first.data.token)).data.categories
+      .find(item => item.category === 'Bills').remaining, 20);
+    assert.equal((await request('/api/budgets/2025-04/categories/Bills', 'DELETE', undefined, second.data.token)).data.categories
+      .find(item => item.category === 'Bills').budget, null);
+    assert.equal((await request('/api/budgets/2025-04', 'GET', undefined, first.data.token)).data.categories
+      .find(item => item.category === 'Bills').budget, 120);
+    assert.equal((await request('/api/budgets/2025-04/categories/Bills', 'DELETE', undefined, first.data.token)).data.categories
+      .find(item => item.category === 'Bills').budget, null);
     const mayExpense = await request('/api/expenses', 'POST', {
       title: 'May rent', amount: 500, category: 'Bills', date: '2025-05-01T00:00:00.000Z'
     }, first.data.token);
@@ -140,11 +161,19 @@ test('accounts own expenses, budgets, and recurring schedules', async () => {
     assert.equal((await request(`/api/budgets/${currentMonth}?currency=USD`, 'GET', undefined, first.data.token)).data.budget, 15);
     assert.equal((await request(`/api/budgets/${currentMonth}?currency=USD`, 'DELETE', undefined, first.data.token)).data.budget, null);
     assert.equal((await request(`/api/budgets/${currentMonth}`, 'GET', undefined, first.data.token)).data.budget, 100);
+    const usdFood = await request(`/api/budgets/${currentMonth}/categories/Food?currency=USD`, 'PUT', { amount: 5 }, first.data.token);
+    assert.equal(usdFood.data.categories.find(item => item.category === 'Food').remaining, -5);
+    assert.equal((await request(`/api/budgets/${currentMonth}`, 'GET', undefined, first.data.token)).data.categories
+      .find(item => item.category === 'Food').budget, null);
     const changedCurrency = await request(`/api/expenses/${usdExpense.data._id}`, 'PUT', {
       title: 'Coffee', amount: 12, currency: 'GBP', category: 'Food'
     }, first.data.token);
     assert.equal(changedCurrency.data.currency, 'GBP');
     assert.equal((await request('/api/expenses?currency=USD', 'GET', undefined, first.data.token)).data.total, 0);
+    assert.equal((await request(`/api/budgets/${currentMonth}?currency=USD`, 'GET', undefined, first.data.token)).data.categories
+      .find(item => item.category === 'Food').spent, 0);
+    assert.equal((await request(`/api/budgets/${currentMonth}?currency=GBP`, 'GET', undefined, first.data.token)).data.categories
+      .find(item => item.category === 'Food').spent, 12);
     assert.equal((await request('/api/recurring')).status, 401);
     assert.equal((await request('/api/recurring', 'POST', { title: 'Bad', amount: 10, category: 'Bills', frequency: 'monthly', startDate: '2025-02-30' }, first.data.token)).status, 400);
     const start = new Date();

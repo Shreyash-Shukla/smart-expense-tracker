@@ -18,6 +18,7 @@ let listRequestId = 0;
 let statsRequestId = 0;
 let budgetRequestId = 0;
 let recurringRequestId = 0;
+let budgetData = null;
 
 function showError(id, message) {
   $(id).textContent = message || '';
@@ -43,6 +44,11 @@ function signOut() {
   $('budget-currency').value = 'INR';
   $('budget-status').textContent = '';
   $('budget-progress').hidden = true;
+  budgetData = null;
+  $('category-budget-form').reset();
+  $('category-budget-list').replaceChildren();
+  $('category-budget-clear').hidden = true;
+  showError('category-budget-error', '');
   recurringRequestId++;
   resetRecurringForm();
   $('recurring-list').replaceChildren();
@@ -258,22 +264,45 @@ function renderInsights(stats, period) {
 }
 
 function renderBudget(data) {
+  budgetData = data;
   $('budget-amount').value = data.budget ?? '';
   $('budget-clear').hidden = data.budget === null;
   const progress = $('budget-progress');
   progress.hidden = data.budget === null;
   if (data.budget === null) {
     $('budget-status').textContent = `${money(data.spent, data.currency)} spent in the selected month. Set a budget to track what remains.`;
-    return;
+  } else {
+    const percent = Math.round(data.spent / data.budget * 100);
+    progress.setAttribute('aria-valuenow', String(Math.min(percent, 100)));
+    progress.setAttribute('aria-valuetext', `${percent}% of budget used`);
+    progress.classList.toggle('over', data.remaining < 0);
+    $('budget-progress-fill').style.width = `${Math.min(percent, 100)}%`;
+    $('budget-status').textContent = data.remaining >= 0
+      ? `${money(data.spent, data.currency)} spent of ${money(data.budget, data.currency)} · ${money(data.remaining, data.currency)} left`
+      : `${money(data.spent, data.currency)} spent of ${money(data.budget, data.currency)} · ${money(-data.remaining, data.currency)} over budget`;
   }
-  const percent = Math.round(data.spent / data.budget * 100);
-  progress.setAttribute('aria-valuenow', String(Math.min(percent, 100)));
-  progress.setAttribute('aria-valuetext', `${percent}% of budget used`);
-  progress.classList.toggle('over', data.remaining < 0);
-  $('budget-progress-fill').style.width = `${Math.min(percent, 100)}%`;
-  $('budget-status').textContent = data.remaining >= 0
-    ? `${money(data.spent, data.currency)} spent of ${money(data.budget, data.currency)} · ${money(data.remaining, data.currency)} left`
-    : `${money(data.spent, data.currency)} spent of ${money(data.budget, data.currency)} · ${money(-data.remaining, data.currency)} over budget`;
+  const list = $('category-budget-list');
+  list.replaceChildren();
+  for (const item of data.categories) {
+    const row = document.createElement('div');
+    row.className = 'category-budget-item';
+    const label = document.createElement('span');
+    label.textContent = item.category;
+    const detail = document.createElement('span');
+    detail.textContent = item.budget === null
+      ? `${money(item.spent, data.currency)} spent · No limit`
+      : `${money(item.spent, data.currency)} of ${money(item.budget, data.currency)} · ${item.remaining >= 0 ? `${money(item.remaining, data.currency)} left` : `${money(-item.remaining, data.currency)} over`}`;
+    if (item.remaining < 0) detail.className = 'over-budget';
+    row.append(label, detail);
+    list.append(row);
+  }
+  selectCategoryBudget();
+}
+
+function selectCategoryBudget() {
+  const selected = budgetData?.categories.find(item => item.category === $('category-budget-category').value);
+  $('category-budget-amount').value = selected?.budget ?? '';
+  $('category-budget-clear').hidden = selected?.budget == null;
 }
 
 async function loadBudget() {
@@ -513,6 +542,42 @@ $('budget-currency').addEventListener('change', async () => {
     await loadBudget();
   } catch (error) {
     showError('budget-error', error.message);
+  }
+});
+$('category-budget-category').addEventListener('change', selectCategoryBudget);
+$('category-budget-form').addEventListener('submit', async event => {
+  event.preventDefault();
+  showError('category-budget-error', '');
+  const submit = $('category-budget-save');
+  submit.disabled = true;
+  try {
+    const month = $('budget-month').value;
+    const currency = $('budget-currency').value;
+    const category = $('category-budget-category').value;
+    await api(`/api/budgets/${month}/categories/${encodeURIComponent(category)}?currency=${currency}`, {
+      method: 'PUT', body: JSON.stringify({ amount: Number($('category-budget-amount').value) })
+    });
+    await loadBudget();
+  } catch (error) {
+    showError('category-budget-error', error.message);
+  } finally {
+    submit.disabled = false;
+  }
+});
+$('category-budget-clear').addEventListener('click', async () => {
+  showError('category-budget-error', '');
+  const button = $('category-budget-clear');
+  button.disabled = true;
+  try {
+    const month = $('budget-month').value;
+    const currency = $('budget-currency').value;
+    const category = $('category-budget-category').value;
+    await api(`/api/budgets/${month}/categories/${encodeURIComponent(category)}?currency=${currency}`, { method: 'DELETE' });
+    await loadBudget();
+  } catch (error) {
+    showError('category-budget-error', error.message);
+  } finally {
+    button.disabled = false;
   }
 });
 $('budget-form').addEventListener('submit', async event => {

@@ -1,10 +1,12 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const Budget = require('../models/Budget');
+const CategoryBudget = require('../models/CategoryBudget');
 const Expense = require('../models/Expense');
 const auth = require('../middleware/auth');
 const { syncRecurringMiddleware } = require('../services/recurring');
 const { currencies } = require('../config/currencies');
+const { categories } = require('../config/categories');
 
 const router = express.Router();
 router.use(auth);
@@ -19,16 +21,28 @@ async function summary(user, month, currency) {
   end.setUTCMonth(end.getUTCMonth() + 1);
   const match = { user: new mongoose.Types.ObjectId(user), date: { $gte: start, $lt: end },
     currency: currency === 'INR' ? { $in: ['INR', null] } : currency };
-  const [budget, expenses] = await Promise.all([
+  const [budget, expenses, categoryBudgets, categorySpending] = await Promise.all([
     Budget.findOne({ user, month }),
     Expense.aggregate([
       { $match: match },
       { $group: { _id: null, total: { $sum: '$amount' } } }
+    ]),
+    CategoryBudget.find({ user, month, currency }).lean(),
+    Expense.aggregate([
+      { $match: match },
+      { $group: { _id: '$category', total: { $sum: '$amount' } } }
     ])
   ]);
   const spent = expenses[0]?.total || 0;
   const amount = currency === 'INR' ? budget?.amount ?? null : budget?.otherAmounts?.get(currency) ?? null;
-  return { month, currency, budget: amount, spent, remaining: amount === null ? null : amount - spent };
+  const limits = new Map(categoryBudgets.map(item => [item.category, item.amount]));
+  const spending = new Map(categorySpending.map(item => [item._id, item.total]));
+  return { month, currency, budget: amount, spent, remaining: amount === null ? null : amount - spent,
+    categories: categories.map(category => {
+      const budget = limits.get(category) ?? null;
+      const spent = spending.get(category) || 0;
+      return { category, budget, spent, remaining: budget === null ? null : budget - spent };
+    }) };
 }
 
 router.param('month', (req, res, next, month) => {
@@ -48,6 +62,41 @@ router.get('/:month', syncRecurringMiddleware, async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Could not load budget' });
+  }
+});
+
+router.put('/:month/categories/:category', async (req, res) => {
+  if (!categories.includes(req.params.category)) return res.status(400).json({ message: 'Invalid category' });
+  const amount = req.body?.amount;
+  if (typeof amount !== 'number' || !Number.isFinite(amount) || amount <= 0 || amount > 1e12 ||
+      Math.abs(amount * 100 - Math.round(amount * 100)) > 1e-8) {
+    return res.status(400).json({ message: 'Enter a positive category limit with up to two decimal places' });
+  }
+  try {
+    const filter = { user: req.userId, month: req.params.month, currency: req.currency, category: req.params.category };
+    const update = { $set: { amount: Math.round(amount * 100) / 100 } };
+    try {
+      await CategoryBudget.findOneAndUpdate(filter, update, { upsert: true, runValidators: true });
+    } catch (error) {
+      if (error.code !== 11000) throw error;
+      await CategoryBudget.updateOne(filter, update, { runValidators: true });
+    }
+    res.json(await summary(req.userId, req.params.month, req.currency));
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Could not save category limit' });
+  }
+});
+
+router.delete('/:month/categories/:category', async (req, res) => {
+  if (!categories.includes(req.params.category)) return res.status(400).json({ message: 'Invalid category' });
+  try {
+    await CategoryBudget.deleteOne({ user: req.userId, month: req.params.month,
+      currency: req.currency, category: req.params.category });
+    res.json(await summary(req.userId, req.params.month, req.currency));
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Could not clear category limit' });
   }
 });
 

@@ -4,9 +4,9 @@ const Expense = require('../models/Expense');
 const auth = require('../middleware/auth');
 const { syncRecurringMiddleware } = require('../services/recurring');
 const { currencies } = require('../config/currencies');
+const { categories } = require('../config/categories');
 
 const router = express.Router();
-const categories = ['Food', 'Transportation', 'Entertainment', 'Shopping', 'Bills', 'Healthcare', 'Education', 'Other'];
 
 function expenseInput(body) {
   const { title, amount, currency, category, description, date } = body;
