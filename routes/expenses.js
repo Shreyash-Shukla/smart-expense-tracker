@@ -24,13 +24,19 @@ function expenseInput(body) {
 }
 
 function expenseFilter(query, userId) {
-  const { category, currency, startDate, endDate } = query;
+  const { category, currency, startDate, endDate, search } = query;
   if ((category && !categories.includes(category)) || (currency && !currencies.includes(currency)) ||
       (startDate && Number.isNaN(Date.parse(startDate))) || (endDate && Number.isNaN(Date.parse(endDate))) ||
-      (startDate && endDate && new Date(startDate) > new Date(endDate))) return null;
+      (startDate && endDate && new Date(startDate) > new Date(endDate)) ||
+      (search !== undefined && (typeof search !== 'string' || search.trim().length > 100))) return null;
   const filter = { user: userId };
   if (category) filter.category = category;
   if (currency) filter.currency = currency === 'INR' ? { $in: ['INR', null] } : currency;
+  if (search?.trim()) {
+    const literal = search.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    filter.$or = [{ title: { $regex: literal, $options: 'i' } },
+      { description: { $regex: literal, $options: 'i' } }];
+  }
   if (startDate || endDate) {
     filter.date = {};
     if (startDate) filter.date.$gte = new Date(startDate);

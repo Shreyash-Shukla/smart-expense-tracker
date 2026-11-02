@@ -48,6 +48,7 @@ test('accounts own expenses, budgets, and recurring schedules', async () => {
     assert.match(html, /Spending insights/);
     assert.match(html, /Category limits/);
     assert.match(html, /Export CSV/);
+    assert.match(html, /Search title or note/);
     assert.equal((await request('/api/expenses')).status, 401);
     assert.equal((await request('/api/auth/register', 'POST', {})).status, 400);
     const first = await request('/api/auth/register', 'POST', { username: 'first', email: 'first@example.com', password: 'password123' });
@@ -67,7 +68,7 @@ test('accounts own expenses, budgets, and recurring schedules', async () => {
     assert.equal((await request(`/api/expenses/${expense.data._id}`, 'DELETE', undefined, first.data.token)).status, 200);
     assert.equal((await request('/api/expenses', 'GET', undefined, first.data.token)).data.total, 0);
     const dated = await request('/api/expenses', 'POST', {
-      title: 'Late bill', amount: 100, category: 'Bills', date: '2025-04-12T23:30:00.000Z'
+      title: 'Late bill', amount: 100, category: 'Bills', description: 'Unit A.', date: '2025-04-12T23:30:00.000Z'
     }, first.data.token);
     assert.equal(dated.status, 201);
     const filtered = await request('/api/expenses?category=Bills&startDate=2025-04-12T00%3A00%3A00.000Z&endDate=2025-04-12T23%3A59%3A59.999Z', 'GET', undefined, first.data.token);
@@ -115,6 +116,23 @@ test('accounts own expenses, budgets, and recurring schedules', async () => {
       title: 'May rent', amount: 500, category: 'Bills', date: '2025-05-01T00:00:00.000Z'
     }, first.data.token);
     assert.equal(mayExpense.status, 201);
+    const titleSearch = await request('/api/expenses?search=RENT&category=Bills', 'GET', undefined, first.data.token);
+    assert.equal(titleSearch.data.total, 1);
+    assert.equal(titleSearch.data.expenses[0]._id, mayExpense.data._id);
+    assert.equal((await request('/api/expenses?search=unit%20a', 'GET', undefined, first.data.token)).data.expenses[0]._id, dated.data._id);
+    assert.equal((await request('/api/expenses?search=.', 'GET', undefined, first.data.token)).data.total, 1);
+    assert.equal((await request('/api/expenses?search=rent&endDate=2025-04-30', 'GET', undefined, first.data.token)).data.total, 0);
+    assert.equal((await request('/api/expenses?search=rent', 'GET', undefined, second.data.token)).data.total, 0);
+    assert.equal((await request(`/api/expenses?search=${'x'.repeat(101)}`, 'GET', undefined, first.data.token)).status, 400);
+    assert.equal((await request('/api/expenses?search[]=rent', 'GET', undefined, first.data.token)).status, 400);
+    const searchExport = await fetch(`${base}/api/expenses/export.csv?search=rent`, {
+      headers: { Authorization: `Bearer ${first.data.token}` }
+    });
+    assert.equal(searchExport.status, 200);
+    const searchCsv = await searchExport.text();
+    assert.match(searchCsv, /May rent/);
+    assert.doesNotMatch(searchCsv, /Late bill/);
+    assert.equal((await request('/api/expenses/export.csv?search[]=rent', 'GET', undefined, first.data.token)).status, 400);
     assert.equal((await request('/api/budgets/2025-04', 'GET', undefined, first.data.token)).data.spent, 100);
     assert.equal((await request('/api/budgets/2025-05', 'GET', undefined, first.data.token)).data.spent, 500);
     const clearedBudget = await request('/api/budgets/2025-04', 'DELETE', undefined, first.data.token);

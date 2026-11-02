@@ -13,7 +13,7 @@ let authMode = 'login';
 let resetToken = new URLSearchParams(location.hash.slice(1)).get('reset');
 let editingId = null;
 let editingRecurringId = null;
-let filters = { category: '', currency: '', startDate: '', endDate: '' };
+let filters = { search: '', category: '', currency: '', startDate: '', endDate: '' };
 let listRequestId = 0;
 let statsRequestId = 0;
 let budgetRequestId = 0;
@@ -37,7 +37,7 @@ function signOut() {
   statsRequestId++;
   resetExpenseForm();
   $('filter-form').reset();
-  filters = { category: '', currency: '', startDate: '', endDate: '' };
+  filters = { search: '', category: '', currency: '', startDate: '', endDate: '' };
   budgetRequestId++;
   $('budget-form').reset();
   setCurrentMonth();
@@ -437,6 +437,7 @@ function expenseRow(expense) {
 async function loadExpenses(nextPage = 1) {
   const requestId = ++listRequestId;
   const params = new URLSearchParams({ page: nextPage, limit: 10 });
+  if (filters.search) params.set('search', filters.search);
   if (filters.category) params.set('category', filters.category);
   if (filters.currency) params.set('currency', filters.currency);
   if (filters.startDate) params.set('startDate', `${filters.startDate}T00:00:00.000Z`);
@@ -449,7 +450,7 @@ async function loadExpenses(nextPage = 1) {
   if (data.total === 0) {
     const empty = document.createElement('p');
     empty.className = 'empty';
-    empty.textContent = filters.category || filters.currency || filters.startDate || filters.endDate
+    empty.textContent = filters.search || filters.category || filters.currency || filters.startDate || filters.endDate
       ? 'No expenses match these filters.'
       : 'No expenses yet. Add your first one to get started.';
     $('expense-list').append(empty);
@@ -457,7 +458,7 @@ async function loadExpenses(nextPage = 1) {
     data.expenses.forEach(expense => $('expense-list').append(expenseRow(expense)));
   }
   $('expense-count').textContent = data.total.toLocaleString();
-  $('expense-count-label').textContent = filters.category || filters.currency || filters.startDate || filters.endDate
+  $('expense-count-label').textContent = filters.search || filters.category || filters.currency || filters.startDate || filters.endDate
     ? 'Matching expenses' : 'Recorded expenses';
   $('load-more').hidden = page >= totalPages;
 }
@@ -640,7 +641,8 @@ $('filter-form').addEventListener('submit', async event => {
     showError('list-error', 'From date must be on or before To date.');
     return;
   }
-  filters = { category: $('filter-category').value, currency: $('filter-currency').value, startDate, endDate };
+  filters = { search: $('filter-search').value.trim(), category: $('filter-category').value,
+    currency: $('filter-currency').value, startDate, endDate };
   showError('list-error', '');
   try {
     await loadExpenses();
@@ -650,7 +652,7 @@ $('filter-form').addEventListener('submit', async event => {
 });
 $('clear-filters').addEventListener('click', async () => {
   $('filter-form').reset();
-  filters = { category: '', currency: '', startDate: '', endDate: '' };
+  filters = { search: '', category: '', currency: '', startDate: '', endDate: '' };
   showError('list-error', '');
   try {
     await loadExpenses();
@@ -664,6 +666,7 @@ $('export-expenses').addEventListener('click', async () => {
   button.disabled = true;
   try {
     const params = new URLSearchParams();
+    if (filters.search) params.set('search', filters.search);
     if (filters.category) params.set('category', filters.category);
     if (filters.currency) params.set('currency', filters.currency);
     if (filters.startDate) params.set('startDate', `${filters.startDate}T00:00:00.000Z`);

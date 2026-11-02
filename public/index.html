@@ -138,6 +138,7 @@
         <section class="card list-card" aria-labelledby="history-heading">
           <div class="section-heading"><div><h2 id="history-heading">Expense history</h2><p class="muted">Find and review your entries</p></div><button id="export-expenses" class="secondary-button" type="button">Export CSV</button></div>
           <form id="filter-form" class="filter-form" aria-label="Filter expenses">
+            <label>Search title or note<input id="filter-search" name="search" type="search" maxlength="100" placeholder="e.g. groceries"></label>
             <div class="form-row">
               <label>Category<select id="filter-category" name="category">
                 <option value="">All categories</option><option>Food</option><option>Transportation</option><option>Entertainment</option><option>Shopping</option>
