@@ -44,6 +44,8 @@ function signOut() {
   $('budget-currency').value = 'INR';
   $('budget-status').textContent = '';
   $('budget-progress').hidden = true;
+  $('budget-alerts').replaceChildren();
+  $('budget-alerts').hidden = true;
   budgetData = null;
   $('category-budget-form').reset();
   $('category-budget-list').replaceChildren();
@@ -280,6 +282,26 @@ function renderBudget(data) {
     $('budget-status').textContent = data.remaining >= 0
       ? `${money(data.spent, data.currency)} spent of ${money(data.budget, data.currency)} · ${money(data.remaining, data.currency)} left`
       : `${money(data.spent, data.currency)} spent of ${money(data.budget, data.currency)} · ${money(-data.remaining, data.currency)} over budget`;
+  }
+  const alerts = $('budget-alerts');
+  alerts.replaceChildren();
+  alerts.hidden = data.alerts.length === 0;
+  if (data.alerts.length) {
+    const heading = document.createElement('h3');
+    heading.textContent = 'Budget warnings';
+    const list = document.createElement('ul');
+    for (const alert of data.alerts) {
+      const item = document.createElement('li');
+      item.className = `budget-alert ${alert.level}`;
+      const label = alert.scope === 'overall' ? 'Monthly budget' : `${alert.category} limit`;
+      item.textContent = alert.level === 'over'
+        ? `${label}: ${money(-alert.remaining, data.currency)} over the ${money(alert.budget, data.currency)} limit.`
+        : alert.level === 'reached'
+          ? `${label}: ${money(alert.budget, data.currency)} limit reached.`
+          : `${label}: ${Math.round(alert.spent / alert.budget * 100)}% used · ${money(alert.remaining, data.currency)} left.`;
+      list.append(item);
+    }
+    alerts.append(heading, list);
   }
   const list = $('category-budget-list');
   list.replaceChildren();

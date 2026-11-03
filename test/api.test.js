@@ -47,6 +47,7 @@ test('accounts own expenses, budgets, and recurring schedules', async () => {
     assert.match(html, /Forgot password\?/);
     assert.match(html, /Spending insights/);
     assert.match(html, /Category limits/);
+    assert.match(html, /id="budget-alerts"/);
     assert.match(html, /Export CSV/);
     assert.match(html, /Search title or note/);
     assert.equal((await request('/api/expenses')).status, 401);
@@ -85,13 +86,24 @@ test('accounts own expenses, budgets, and recurring schedules', async () => {
     assert.equal(april.status, 200);
     assert.equal(april.data.budget, null);
     assert.equal(april.data.spent, 100);
+    assert.deepEqual(april.data.alerts, []);
     assert.equal((await request('/api/budgets/2025-04', 'GET', undefined, second.data.token)).data.spent, 0);
     const savedBudget = await request('/api/budgets/2025-04', 'PUT', { amount: 150 }, first.data.token);
     assert.equal(savedBudget.status, 200);
     assert.equal(savedBudget.data.remaining, 50);
+    assert.deepEqual(savedBudget.data.alerts, []);
     assert.equal((await request('/api/budgets/2025-04', 'GET', undefined, second.data.token)).data.budget, null);
+    const nearBudget = await request('/api/budgets/2025-04', 'PUT', { amount: 125 }, first.data.token);
+    assert.deepEqual(nearBudget.data.alerts, [
+      { scope: 'overall', level: 'near', budget: 125, spent: 100, remaining: 25 }
+    ]);
+    const reachedBudget = await request('/api/budgets/2025-04', 'PUT', { amount: 100 }, first.data.token);
+    assert.equal(reachedBudget.data.alerts[0].level, 'reached');
     const changedBudget = await request('/api/budgets/2025-04', 'PUT', { amount: 80 }, first.data.token);
     assert.equal(changedBudget.data.remaining, -20);
+    assert.deepEqual(changedBudget.data.alerts, [
+      { scope: 'overall', level: 'over', budget: 80, spent: 100, remaining: -20 }
+    ]);
     assert.equal(changedBudget.data.categories.find(item => item.category === 'Bills').spent, 100);
     assert.equal((await request('/api/budgets/2025-04/categories/Unknown', 'PUT', { amount: 50 }, first.data.token)).status, 400);
     assert.equal((await request('/api/budgets/2025-04/categories/Bills', 'PUT', { amount: 1.234 }, first.data.token)).status, 400);
@@ -99,11 +111,18 @@ test('accounts own expenses, budgets, and recurring schedules', async () => {
     assert.equal(categoryLimit.status, 200);
     assert.deepEqual(categoryLimit.data.categories.find(item => item.category === 'Bills'),
       { category: 'Bills', budget: 90, spent: 100, remaining: -10 });
+    assert.deepEqual(categoryLimit.data.alerts.find(item => item.category === 'Bills'),
+      { scope: 'category', category: 'Bills', level: 'over', budget: 90, spent: 100, remaining: -10 });
     assert.equal(categoryLimit.data.budget, 80);
     assert.equal((await request('/api/budgets/2025-04', 'GET', undefined, second.data.token)).data.categories
       .find(item => item.category === 'Bills').budget, null);
     const otherCategoryLimit = await request('/api/budgets/2025-04/categories/Food', 'PUT', { amount: 25 }, first.data.token);
     assert.equal(otherCategoryLimit.data.categories.find(item => item.category === 'Food').spent, 0);
+    assert.equal(otherCategoryLimit.data.alerts.some(item => item.category === 'Food'), false);
+    assert.equal((await request('/api/budgets/2025-04/categories/Bills', 'PUT', { amount: 125 }, first.data.token)).data.alerts
+      .find(item => item.category === 'Bills').level, 'near');
+    assert.equal((await request('/api/budgets/2025-04/categories/Bills', 'PUT', { amount: 100 }, first.data.token)).data.alerts
+      .find(item => item.category === 'Bills').level, 'reached');
     assert.equal((await request('/api/budgets/2025-04/categories/Bills', 'PUT', { amount: 120 }, first.data.token)).data.categories
       .find(item => item.category === 'Bills').remaining, 20);
     assert.equal((await request('/api/budgets/2025-04/categories/Bills', 'DELETE', undefined, second.data.token)).data.categories
@@ -112,6 +131,8 @@ test('accounts own expenses, budgets, and recurring schedules', async () => {
       .find(item => item.category === 'Bills').budget, 120);
     assert.equal((await request('/api/budgets/2025-04/categories/Bills', 'DELETE', undefined, first.data.token)).data.categories
       .find(item => item.category === 'Bills').budget, null);
+    assert.equal((await request('/api/budgets/2025-04', 'GET', undefined, first.data.token)).data.alerts
+      .some(item => item.category === 'Bills'), false);
     const mayExpense = await request('/api/expenses', 'POST', {
       title: 'May rent', amount: 500, category: 'Bills', date: '2025-05-01T00:00:00.000Z'
     }, first.data.token);
@@ -138,6 +159,7 @@ test('accounts own expenses, budgets, and recurring schedules', async () => {
     const clearedBudget = await request('/api/budgets/2025-04', 'DELETE', undefined, first.data.token);
     assert.equal(clearedBudget.status, 200);
     assert.equal(clearedBudget.data.budget, null);
+    assert.deepEqual(clearedBudget.data.alerts, []);
     await Expense.collection.updateOne({ _id: new mongoose.Types.ObjectId(dated.data._id) }, { $unset: { currency: '' } });
     assert.equal((await request('/api/budgets/2025-04', 'GET', undefined, first.data.token)).data.spent, 100);
     assert.equal((await request('/api/expenses?currency=INR', 'GET', undefined, first.data.token)).data.total, 2);
@@ -181,8 +203,11 @@ test('accounts own expenses, budgets, and recurring schedules', async () => {
     assert.equal((await request(`/api/budgets/${currentMonth}`, 'GET', undefined, first.data.token)).data.budget, 100);
     const usdFood = await request(`/api/budgets/${currentMonth}/categories/Food?currency=USD`, 'PUT', { amount: 5 }, first.data.token);
     assert.equal(usdFood.data.categories.find(item => item.category === 'Food').remaining, -5);
+    assert.equal(usdFood.data.alerts.find(item => item.category === 'Food').level, 'over');
     assert.equal((await request(`/api/budgets/${currentMonth}`, 'GET', undefined, first.data.token)).data.categories
       .find(item => item.category === 'Food').budget, null);
+    assert.equal((await request(`/api/budgets/${currentMonth}`, 'GET', undefined, first.data.token)).data.alerts
+      .some(item => item.category === 'Food'), false);
     const changedCurrency = await request(`/api/expenses/${usdExpense.data._id}`, 'PUT', {
       title: 'Coffee', amount: 12, currency: 'GBP', category: 'Food'
     }, first.data.token);

@@ -15,6 +15,16 @@ function validMonth(month) {
   return /^\d{4}-(0[1-9]|1[0-2])$/.test(month);
 }
 
+function budgetAlert(scope, category, budget, spent) {
+  if (budget === null) return null;
+  const budgetCents = Math.round(budget * 100);
+  const spentCents = Math.round(spent * 100);
+  if (spentCents * 5 < budgetCents * 4) return null;
+  return { scope, ...(category ? { category } : {}),
+    level: spentCents > budgetCents ? 'over' : spentCents === budgetCents ? 'reached' : 'near',
+    budget, spent, remaining: (budgetCents - spentCents) / 100 };
+}
+
 async function summary(user, month, currency) {
   const start = new Date(`${month}-01T00:00:00.000Z`);
   const end = new Date(start);
@@ -37,12 +47,16 @@ async function summary(user, month, currency) {
   const amount = currency === 'INR' ? budget?.amount ?? null : budget?.otherAmounts?.get(currency) ?? null;
   const limits = new Map(categoryBudgets.map(item => [item.category, item.amount]));
   const spending = new Map(categorySpending.map(item => [item._id, item.total]));
+  const categorySummaries = categories.map(category => {
+    const budget = limits.get(category) ?? null;
+    const spent = spending.get(category) || 0;
+    return { category, budget, spent, remaining: budget === null ? null : budget - spent };
+  });
+  const alerts = [budgetAlert('overall', null, amount, spent),
+    ...categorySummaries.map(item => budgetAlert('category', item.category, item.budget, item.spent))]
+    .filter(Boolean);
   return { month, currency, budget: amount, spent, remaining: amount === null ? null : amount - spent,
-    categories: categories.map(category => {
-      const budget = limits.get(category) ?? null;
-      const spent = spending.get(category) || 0;
-      return { category, budget, spent, remaining: budget === null ? null : budget - spent };
-    }) };
+    categories: categorySummaries, alerts };
 }
 
 router.param('month', (req, res, next, month) => {
