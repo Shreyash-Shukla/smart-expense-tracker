@@ -167,4 +167,29 @@ router.get('/profile', auth, async (req, res) => {
   }
 });
 
+// Change password
+router.post('/change-password', auth, async (req, res) => {
+  const { currentPassword, newPassword } = req.body || {};
+  if (typeof currentPassword !== 'string' || typeof newPassword !== 'string' ||
+      newPassword.length < 8 || newPassword.length > 128) {
+    return res.status(400).json({ message: 'Enter your current password and a new password (8–128 characters)' });
+  }
+  try {
+    const user = await User.findById(req.userId);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    const isMatch = await user.comparePassword(currentPassword);
+    if (!isMatch) return res.status(400).json({ message: 'Current password is incorrect' });
+
+    user.password = newPassword;
+    user.sessionVersion = (user.sessionVersion ?? 0) + 1;
+    await user.save();
+
+    const token = jwt.sign({ userId: user._id, sessionVersion: user.sessionVersion }, process.env.JWT_SECRET, { expiresIn: '7d' });
+    res.json({ message: 'Password updated successfully', token });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Could not change password' });
+  }
+});
+
 module.exports = router;

@@ -67,6 +67,9 @@ function signOut() {
   $('month-total').append(initialTotal);
   showError('list-error', '');
   showError('budget-error', '');
+  $('change-password-form').reset();
+  showError('account-error', '');
+  showError('account-message', '');
   token = null;
   user = null;
   localStorage.removeItem('expense-token');
@@ -583,6 +586,30 @@ $('reset-form').addEventListener('submit', async event => {
     showError('auth-message', 'Password updated. Log in with your new password.');
   } catch (error) {
     showError('reset-error', error.message);
+  } finally {
+    submit.disabled = false;
+  }
+});
+$('change-password-form').addEventListener('submit', async event => {
+  event.preventDefault();
+  showError('account-error', '');
+  showError('account-message', '');
+  const submit = $('account-submit');
+  submit.disabled = true;
+  try {
+    const result = await api('/api/auth/change-password', {
+      method: 'POST',
+      body: JSON.stringify({
+        currentPassword: $('change-current-password').value,
+        newPassword: $('change-new-password').value
+      })
+    });
+    token = result.token;
+    localStorage.setItem('expense-token', token);
+    $('change-password-form').reset();
+    showError('account-message', result.message);
+  } catch (error) {
+    showError('account-error', error.message);
   } finally {
     submit.disabled = false;
   }

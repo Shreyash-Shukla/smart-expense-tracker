@@ -21,7 +21,7 @@ The app supports INR, USD, EUR, GBP, CAD, AUD, SGD, AED, and CHF. Existing recor
 
 ## API
 
-- `POST /api/auth/register`, `POST /api/auth/login`, `GET /api/auth/profile`, `POST /api/auth/forgot-password`, `POST /api/auth/reset-password`
+- `POST /api/auth/register`, `POST /api/auth/login`, `GET /api/auth/profile`, `POST /api/auth/change-password`, `POST /api/auth/forgot-password`, `POST /api/auth/reset-password`
 - `GET /api/expenses`, `GET /api/expenses/export.csv`, `POST /api/expenses`, `GET /api/expenses/:id`, `PUT /api/expenses/:id`, `DELETE /api/expenses/:id` (`currency` defaults to INR; list and CSV export accept a `search` term of up to 100 characters, category, currency, and date filters, and `sort` options `date_desc`, `date_asc`, `amount_desc`, `amount_asc`; list response includes totals by currency)
 - `GET /api/dashboard/stats`, `GET /api/dashboard/categories` (totals and breakdowns include currency; legacy `totalExpenses` is the INR total)
 - `GET /api/budgets/:month`, `PUT /api/budgets/:month`, `DELETE /api/budgets/:month` (`month` is `YYYY-MM`; optional `currency` query defaults to INR; spending uses UTC calendar months; responses include category spending, limits, and threshold warnings)

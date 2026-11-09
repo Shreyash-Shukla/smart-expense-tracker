@@ -65,6 +65,7 @@ test('accounts own expenses, budgets, and recurring schedules', async () => {
     assert.match(html, /Search title or note/);
     assert.match(html, /id="filter-sort"/);
     assert.match(html, /id="history-summary"/);
+    assert.match(html, /id="change-password-form"/);
     assert.equal((await request('/api/expenses')).status, 401);
     assert.equal((await request('/api/auth/register', 'POST', {})).status, 400);
     const first = await request('/api/auth/register', 'POST', { username: 'first', email: 'first@example.com', password: 'password123' });
@@ -331,6 +332,15 @@ test('accounts own expenses, budgets, and recurring schedules', async () => {
     assert.equal(putRecurring.status, 200);
     assert.equal(putRecurring.data.title, 'Gym Premium');
     assert.equal(putRecurring.data.nextDate, advance(todayStr, 'monthly', Number(todayStr.slice(8, 10))));
+    assert.equal((await request('/api/auth/change-password', 'POST', { currentPassword: 'wrong', newPassword: 'in-app-new-password-123' }, reLogin.data.token)).status, 400);
+    assert.equal((await request('/api/auth/change-password', 'POST', { currentPassword: 'new-password-123', newPassword: 'short' }, reLogin.data.token)).status, 400);
+    assert.equal((await request('/api/auth/change-password', 'POST', { currentPassword: 'new-password-123', newPassword: 'in-app-new-password-123' })).status, 401);
+    const changed = await request('/api/auth/change-password', 'POST', { currentPassword: 'new-password-123', newPassword: 'in-app-new-password-123' }, reLogin.data.token);
+    assert.equal(changed.status, 200);
+    assert.ok(changed.data.token);
+    assert.equal((await request('/api/auth/profile', 'GET', undefined, reLogin.data.token)).status, 401);
+    assert.equal((await request('/api/auth/profile', 'GET', undefined, changed.data.token)).status, 200);
+    assert.equal((await request('/api/auth/login', 'POST', { email: 'first@example.com', password: 'in-app-new-password-123' })).status, 200);
     assert.equal((await request('/api/auth/reset-password', 'POST', { token: resetToken, password: 'again-password-123' })).status, 400);
     assert.equal((await request('/api/auth/forgot-password', 'POST', { email: 'first@example.com' })).status, 200);
     const expiredToken = /#reset=([a-f0-9]{64})/.exec(sentMail[1].text)?.[1];

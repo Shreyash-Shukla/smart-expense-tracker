@@ -171,6 +171,22 @@
           <button id="load-more" class="secondary-button" type="button" hidden>Load more</button>
         </section>
       </div>
+      <section class="card account-card" aria-labelledby="account-heading">
+        <div class="section-heading">
+          <div><h2 id="account-heading">Account &amp; Security</h2><p class="muted">Change your account password directly while logged in.</p></div>
+        </div>
+        <form id="change-password-form">
+          <div class="form-row">
+            <label>Current password<input id="change-current-password" type="password" autocomplete="current-password" required></label>
+            <label>New password<input id="change-new-password" type="password" autocomplete="new-password" minlength="8" maxlength="128" required></label>
+          </div>
+          <p id="account-error" class="error" role="alert" hidden></p>
+          <p id="account-message" class="muted" role="status" hidden></p>
+          <div class="form-actions">
+            <button id="account-submit" class="secondary-button" type="submit">Update password</button>
+          </div>
+        </form>
+      </section>
     </section>
   </main>
 </body>
