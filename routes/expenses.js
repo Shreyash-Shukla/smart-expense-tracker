@@ -31,7 +31,7 @@ function expenseFilter(query, userId) {
       (endDate && (typeof endDate !== 'string' || Number.isNaN(Date.parse(endDate)))) ||
       (startDate && endDate && new Date(startDate) > new Date(endDate)) ||
       (search !== undefined && (typeof search !== 'string' || search.trim().length > 100))) return null;
-  const filter = { user: userId };
+  const filter = { user: new mongoose.Types.ObjectId(userId) };
   if (category) filter.category = category;
   if (currency) filter.currency = currency === 'INR' ? { $in: ['INR', null] } : currency;
   if (search?.trim()) {
@@ -79,18 +79,30 @@ router.get('/', auth, syncRecurringMiddleware, async (req, res) => {
       return res.status(400).json({ message: 'Invalid filters' });
     }
 
-    const expenses = await Expense.find(filter)
-      .sort({ date: -1, _id: -1 })
-      .limit(limit)
-      .skip((page - 1) * limit);
+    const [expenses, total, rawTotals] = await Promise.all([
+      Expense.find(filter)
+        .sort({ date: -1, _id: -1 })
+        .limit(limit)
+        .skip((page - 1) * limit),
+      Expense.countDocuments(filter),
+      Expense.aggregate([
+        { $match: filter },
+        { $group: { _id: { $ifNull: ['$currency', 'INR'] }, total: { $sum: '$amount' } } },
+        { $sort: { _id: 1 } }
+      ])
+    ]);
 
-    const total = await Expense.countDocuments(filter);
+    const totalsByCurrency = rawTotals.map(item => ({
+      _id: item._id,
+      total: Math.round(item.total * 100) / 100
+    }));
 
     res.json({
       expenses,
       totalPages: Math.ceil(total / limit),
       currentPage: page,
-      total
+      total,
+      totalsByCurrency
     });
   } catch (error) {
     console.error(error);

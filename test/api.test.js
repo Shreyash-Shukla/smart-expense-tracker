@@ -87,6 +87,7 @@ test('accounts own expenses, budgets, and recurring schedules', async () => {
     const filtered = await request('/api/expenses?category=Bills&startDate=2025-04-12T00%3A00%3A00.000Z&endDate=2025-04-12T23%3A59%3A59.999Z', 'GET', undefined, first.data.token);
     assert.equal(filtered.status, 200);
     assert.equal(filtered.data.total, 1);
+    assert.deepEqual(filtered.data.totalsByCurrency, [{ _id: 'INR', total: 100 }]);
     assert.equal(filtered.data.expenses[0]._id, dated.data._id);
     assert.equal((await request('/api/expenses?category=Food', 'GET', undefined, first.data.token)).data.total, 0);
     assert.equal((await request('/api/expenses', 'POST', { title: 'Bad cents', amount: 1.234, category: 'Food' }, first.data.token)).status, 400);
@@ -195,7 +196,9 @@ test('accounts own expenses, budgets, and recurring schedules', async () => {
     assert.match(csv, /Coffee/);
     assert.doesNotMatch(csv, /Lunch/);
     assert.equal((await request('/api/expenses/export.csv?currency=XYZ', 'GET', undefined, first.data.token)).status, 400);
-    assert.equal((await request('/api/expenses?currency=USD', 'GET', undefined, first.data.token)).data.total, 1);
+    const usdExpenses = await request('/api/expenses?currency=USD', 'GET', undefined, first.data.token);
+    assert.equal(usdExpenses.data.total, 1);
+    assert.deepEqual(usdExpenses.data.totalsByCurrency, [{ _id: 'USD', total: 10 }]);
     const mixedStats = await request('/api/dashboard/stats', 'GET', undefined, first.data.token);
     assert.equal(mixedStats.data.totalExpenses, 0);
     assert.deepEqual(Object.fromEntries(mixedStats.data.totalsByCurrency.map(item => [item._id, item.total])), { EUR: 20, USD: 10 });

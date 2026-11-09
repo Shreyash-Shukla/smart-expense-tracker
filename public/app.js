@@ -56,6 +56,8 @@ function signOut() {
   $('recurring-list').replaceChildren();
   $('insights-list').replaceChildren();
   $('expense-list').replaceChildren();
+  $('history-summary').textContent = '';
+  $('history-summary').hidden = true;
   $('expense-count').textContent = '0';
   $('expense-count-label').textContent = 'Recorded expenses';
   $('month-total').replaceChildren();
@@ -492,6 +494,16 @@ async function loadExpenses(nextPage = 1) {
   $('expense-count').textContent = data.total.toLocaleString();
   $('expense-count-label').textContent = filters.search || filters.category || filters.currency || filters.startDate || filters.endDate
     ? 'Matching expenses' : 'Recorded expenses';
+  const summaryEl = $('history-summary');
+  if (data.total === 0) {
+    summaryEl.textContent = '';
+    summaryEl.hidden = true;
+  } else {
+    summaryEl.hidden = false;
+    const totals = (data.totalsByCurrency || []).map(item => money(item.total, item._id));
+    const totalText = totals.length ? ` · Total: ${totals.join(', ')}` : '';
+    summaryEl.textContent = `${data.total.toLocaleString()} ${data.total === 1 ? 'expense' : 'expenses'}${totalText}`;
+  }
   $('load-more').hidden = page >= totalPages;
 }
 

@@ -97,6 +97,7 @@ textarea { resize: vertical; }
 .section-heading { margin-bottom: 18px; }
 .filter-form { margin: 0 0 20px; gap: 12px; }
 .filter-form .form-actions { align-items: center; }
+.history-summary { margin: 0 0 14px; font-size: 14px; font-weight: 650; color: #526760; }
 .expense-list { border-top: 1px solid #edf1ee; }
 .expense-item { display: flex; justify-content: space-between; gap: 20px; padding: 17px 0; border-bottom: 1px solid #edf1ee; }
 .expense-main { min-width: 0; }
