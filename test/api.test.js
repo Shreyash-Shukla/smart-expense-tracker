@@ -3,7 +3,9 @@ const assert = require('node:assert/strict');
 const { randomUUID } = require('node:crypto');
 const mongoose = require('mongoose');
 const nodemailer = require('nodemailer');
+const jwt = require('jsonwebtoken');
 const { advance } = require('../services/recurring');
+const { periodStartDate } = require('../routes/dashboard');
 const PasswordResetToken = require('../models/PasswordResetToken');
 const Expense = require('../models/Expense');
 
@@ -21,6 +23,16 @@ test('recurring cadence keeps the original monthly day', () => {
   assert.equal(advance('2025-02-28', 'monthly', 31), '2025-03-31');
   assert.equal(advance('2024-02-29', 'monthly', 29), '2024-03-29');
   assert.equal(advance('2025-04-12', 'weekly', 12), '2025-04-19');
+});
+
+test('periodStartDate handles month-end and leap-year boundaries correctly', () => {
+  const march31 = new Date('2025-03-31T12:00:00.000Z');
+  const may31 = new Date('2025-05-31T12:00:00.000Z');
+  const feb29Leap = new Date('2024-02-29T12:00:00.000Z');
+  assert.equal(periodStartDate('month', march31).toISOString().slice(0, 10), '2025-02-28');
+  assert.equal(periodStartDate('month', may31).toISOString().slice(0, 10), '2025-04-30');
+  assert.equal(periodStartDate('year', feb29Leap).toISOString().slice(0, 10), '2023-02-28');
+  assert.equal(periodStartDate('week', march31).toISOString().slice(0, 10), '2025-03-24');
 });
 
 test('accounts own expenses, budgets, and recurring schedules', async () => {
@@ -271,7 +283,27 @@ test('accounts own expenses, budgets, and recurring schedules', async () => {
     assert.equal((await request('/api/auth/profile', 'GET', undefined, first.data.token)).status, 401);
     assert.equal((await request('/api/auth/profile', 'GET', undefined, second.data.token)).status, 200);
     assert.equal((await request('/api/auth/login', 'POST', { email: 'first@example.com', password: 'password123' })).status, 400);
-    assert.equal((await request('/api/auth/login', 'POST', { email: 'first@example.com', password: 'new-password-123' })).status, 200);
+    const reLogin = await request('/api/auth/login', 'POST', { email: 'first@example.com', password: 'new-password-123' });
+    assert.equal(reLogin.status, 200);
+    const badToken = jwt.sign({ userId: 'not-an-object-id', sessionVersion: 0 }, process.env.JWT_SECRET);
+    assert.equal((await request('/api/auth/profile', 'GET', undefined, badToken)).status, 401);
+    assert.equal((await request('/api/auth/register', 'POST', { username: '  first  ', email: 'third@example.com', password: 'password123' })).status, 400);
+    assert.equal((await request('/api/dashboard/stats?period=invalid', 'GET', undefined, reLogin.data.token)).status, 200);
+    assert.equal((await request('/api/dashboard/categories?period=invalid', 'GET', undefined, reLogin.data.token)).status, 200);
+    assert.equal((await request('/api/expenses?startDate[]=2025-01-01', 'GET', undefined, reLogin.data.token)).status, 400);
+    assert.equal((await request('/api/expenses?category[]=Food', 'GET', undefined, reLogin.data.token)).status, 400);
+    await request('/api/expenses', 'POST', { title: 'Item 1', amount: 0.1, category: 'Food', date: '2025-06-01T12:00:00.000Z' }, reLogin.data.token);
+    await request('/api/expenses', 'POST', { title: 'Item 2', amount: 0.2, category: 'Food', date: '2025-06-02T12:00:00.000Z' }, reLogin.data.token);
+    await request('/api/budgets/2025-06', 'PUT', { amount: 100 }, reLogin.data.token);
+    const juneBudget = await request('/api/budgets/2025-06', 'GET', undefined, reLogin.data.token);
+    assert.equal(juneBudget.data.spent, 0.3);
+    assert.equal(juneBudget.data.remaining, 99.7);
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const testRecurring = await request('/api/recurring', 'POST', { title: 'Gym', amount: 40, category: 'Healthcare', frequency: 'monthly', startDate: todayStr }, reLogin.data.token);
+    const putRecurring = await request(`/api/recurring/${testRecurring.data._id}`, 'PUT', { title: 'Gym Premium', amount: 50, category: 'Healthcare', frequency: 'monthly', startDate: todayStr }, reLogin.data.token);
+    assert.equal(putRecurring.status, 200);
+    assert.equal(putRecurring.data.title, 'Gym Premium');
+    assert.equal(putRecurring.data.nextDate, advance(todayStr, 'monthly', Number(todayStr.slice(8, 10))));
     assert.equal((await request('/api/auth/reset-password', 'POST', { token: resetToken, password: 'again-password-123' })).status, 400);
     assert.equal((await request('/api/auth/forgot-password', 'POST', { email: 'first@example.com' })).status, 200);
     const expiredToken = /#reset=([a-f0-9]{64})/.exec(sentMail[1].text)?.[1];

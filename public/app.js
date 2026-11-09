@@ -55,6 +55,16 @@ function signOut() {
   resetRecurringForm();
   $('recurring-list').replaceChildren();
   $('insights-list').replaceChildren();
+  $('expense-list').replaceChildren();
+  $('expense-count').textContent = '0';
+  $('expense-count-label').textContent = 'Recorded expenses';
+  $('month-total').replaceChildren();
+  const initialTotal = document.createElement('span');
+  initialTotal.className = 'currency-total';
+  initialTotal.textContent = '₹0.00';
+  $('month-total').append(initialTotal);
+  showError('list-error', '');
+  showError('budget-error', '');
   token = null;
   user = null;
   localStorage.removeItem('expense-token');
@@ -553,6 +563,7 @@ $('insights-period').addEventListener('change', async () => {
 });
 $('budget-month').addEventListener('change', async () => {
   showError('budget-error', '');
+  showError('category-budget-error', '');
   try {
     await loadBudget();
   } catch (error) {
@@ -561,6 +572,7 @@ $('budget-month').addEventListener('change', async () => {
 });
 $('budget-currency').addEventListener('change', async () => {
   showError('budget-error', '');
+  showError('category-budget-error', '');
   try {
     await loadBudget();
   } catch (error) {

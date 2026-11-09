@@ -43,19 +43,19 @@ async function summary(user, month, currency) {
       { $group: { _id: '$category', total: { $sum: '$amount' } } }
     ])
   ]);
-  const spent = expenses[0]?.total || 0;
+  const spent = Math.round((expenses[0]?.total || 0) * 100) / 100;
   const amount = currency === 'INR' ? budget?.amount ?? null : budget?.otherAmounts?.get(currency) ?? null;
   const limits = new Map(categoryBudgets.map(item => [item.category, item.amount]));
   const spending = new Map(categorySpending.map(item => [item._id, item.total]));
   const categorySummaries = categories.map(category => {
     const budget = limits.get(category) ?? null;
-    const spent = spending.get(category) || 0;
-    return { category, budget, spent, remaining: budget === null ? null : budget - spent };
+    const spent = Math.round((spending.get(category) || 0) * 100) / 100;
+    return { category, budget, spent, remaining: budget === null ? null : (Math.round(budget * 100) - Math.round(spent * 100)) / 100 };
   });
   const alerts = [budgetAlert('overall', null, amount, spent),
     ...categorySummaries.map(item => budgetAlert('category', item.category, item.budget, item.spent))]
     .filter(Boolean);
-  return { month, currency, budget: amount, spent, remaining: amount === null ? null : amount - spent,
+  return { month, currency, budget: amount, spent, remaining: amount === null ? null : (Math.round(amount * 100) - Math.round(spent * 100)) / 100,
     categories: categorySummaries, alerts };
 }
 

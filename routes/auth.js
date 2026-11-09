@@ -37,13 +37,14 @@ router.post('/register', async (req, res) => {
     }
 
     // Check if user exists
-    const existingUser = await User.findOne({ $or: [{ email }, { username }] });
+    const trimmedUsername = username.trim();
+    const existingUser = await User.findOne({ $or: [{ email }, { username: trimmedUsername }] });
     if (existingUser) {
       return res.status(400).json({ message: 'User already exists' });
     }
 
     // Create new user
-    const user = new User({ username: username.trim(), email, password });
+    const user = new User({ username: trimmedUsername, email, password });
     await user.save();
 
     // Generate token

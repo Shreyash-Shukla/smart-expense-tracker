@@ -25,8 +25,10 @@ function expenseInput(body) {
 
 function expenseFilter(query, userId) {
   const { category, currency, startDate, endDate, search } = query;
-  if ((category && !categories.includes(category)) || (currency && !currencies.includes(currency)) ||
-      (startDate && Number.isNaN(Date.parse(startDate))) || (endDate && Number.isNaN(Date.parse(endDate))) ||
+  if ((category && (typeof category !== 'string' || !categories.includes(category))) ||
+      (currency && (typeof currency !== 'string' || !currencies.includes(currency))) ||
+      (startDate && (typeof startDate !== 'string' || Number.isNaN(Date.parse(startDate)))) ||
+      (endDate && (typeof endDate !== 'string' || Number.isNaN(Date.parse(endDate)))) ||
       (startDate && endDate && new Date(startDate) > new Date(endDate)) ||
       (search !== undefined && (typeof search !== 'string' || search.trim().length > 100))) return null;
   const filter = { user: userId };

@@ -75,7 +75,7 @@ router.put('/:id', async (req, res) => {
     Object.assign(rule, input, { nextDate: nextDueDate(input.startDate, input.frequency) });
     await rule.save();
     if (rule.active) await syncRecurring(req.userId);
-    res.json(rule);
+    res.json(await RecurringExpense.findById(rule._id));
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Could not update recurring expense' });
