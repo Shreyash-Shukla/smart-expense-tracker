@@ -13,7 +13,7 @@ let authMode = 'login';
 let resetToken = new URLSearchParams(location.hash.slice(1)).get('reset');
 let editingId = null;
 let editingRecurringId = null;
-let filters = { search: '', category: '', currency: '', startDate: '', endDate: '' };
+let filters = { search: '', category: '', currency: '', startDate: '', endDate: '', sort: 'date_desc' };
 let listRequestId = 0;
 let statsRequestId = 0;
 let budgetRequestId = 0;
@@ -37,7 +37,7 @@ function signOut() {
   statsRequestId++;
   resetExpenseForm();
   $('filter-form').reset();
-  filters = { search: '', category: '', currency: '', startDate: '', endDate: '' };
+  filters = { search: '', category: '', currency: '', startDate: '', endDate: '', sort: 'date_desc' };
   budgetRequestId++;
   $('budget-form').reset();
   setCurrentMonth();
@@ -476,6 +476,7 @@ async function loadExpenses(nextPage = 1) {
   if (filters.currency) params.set('currency', filters.currency);
   if (filters.startDate) params.set('startDate', `${filters.startDate}T00:00:00.000Z`);
   if (filters.endDate) params.set('endDate', `${filters.endDate}T23:59:59.999Z`);
+  if (filters.sort && filters.sort !== 'date_desc') params.set('sort', filters.sort);
   const data = await api(`/api/expenses?${params}`);
   if (requestId !== listRequestId) return;
   page = nextPage;
@@ -688,7 +689,7 @@ $('filter-form').addEventListener('submit', async event => {
     return;
   }
   filters = { search: $('filter-search').value.trim(), category: $('filter-category').value,
-    currency: $('filter-currency').value, startDate, endDate };
+    currency: $('filter-currency').value, startDate, endDate, sort: $('filter-sort').value };
   showError('list-error', '');
   try {
     await loadExpenses();
@@ -698,7 +699,7 @@ $('filter-form').addEventListener('submit', async event => {
 });
 $('clear-filters').addEventListener('click', async () => {
   $('filter-form').reset();
-  filters = { search: '', category: '', currency: '', startDate: '', endDate: '' };
+  filters = { search: '', category: '', currency: '', startDate: '', endDate: '', sort: 'date_desc' };
   showError('list-error', '');
   try {
     await loadExpenses();
@@ -717,6 +718,7 @@ $('export-expenses').addEventListener('click', async () => {
     if (filters.currency) params.set('currency', filters.currency);
     if (filters.startDate) params.set('startDate', `${filters.startDate}T00:00:00.000Z`);
     if (filters.endDate) params.set('endDate', `${filters.endDate}T23:59:59.999Z`);
+    if (filters.sort && filters.sort !== 'date_desc') params.set('sort', filters.sort);
     const response = await fetch(`/api/expenses/export.csv?${params}`, { headers: { Authorization: `Bearer ${token}` } });
     if (!response.ok) {
       const data = await response.json().catch(() => ({}));

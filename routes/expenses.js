@@ -8,6 +8,13 @@ const { categories } = require('../config/categories');
 
 const router = express.Router();
 
+const sortOptions = {
+  date_desc: { date: -1, _id: -1 },
+  date_asc: { date: 1, _id: 1 },
+  amount_desc: { amount: -1, date: -1, _id: -1 },
+  amount_asc: { amount: 1, date: -1, _id: -1 }
+};
+
 function expenseInput(body) {
   const { title, amount, currency, category, description, date } = body;
   if (typeof title !== 'string' || !title.trim() || title.trim().length > 100 ||
@@ -55,9 +62,12 @@ function csvCell(value) {
 
 router.get('/export.csv', auth, syncRecurringMiddleware, async (req, res) => {
   const filter = expenseFilter(req.query, req.userId);
-  if (!filter) return res.status(400).json({ message: 'Invalid filters' });
+  if (!filter || (req.query.sort !== undefined && !sortOptions[req.query.sort])) {
+    return res.status(400).json({ message: 'Invalid filters' });
+  }
+  const sort = sortOptions[req.query.sort || 'date_desc'];
   try {
-    const expenses = await Expense.find(filter).sort({ date: -1, _id: -1 }).lean();
+    const expenses = await Expense.find(filter).sort(sort).lean();
     const rows = [['Date', 'Title', 'Category', 'Amount', 'Currency', 'Note', 'Recurring'],
       ...expenses.map(item => [item.date.toISOString().slice(0, 10), item.title, item.category,
         item.amount.toFixed(2), item.currency || 'INR', item.description || '', item.recurringRule ? 'Yes' : 'No'])];
@@ -75,13 +85,15 @@ router.get('/', auth, syncRecurringMiddleware, async (req, res) => {
     const page = Number(req.query.page || 1);
     const limit = Number(req.query.limit || 10);
     const filter = expenseFilter(req.query, req.userId);
-    if (!Number.isInteger(page) || page < 1 || !Number.isInteger(limit) || limit < 1 || limit > 100 || !filter) {
+    if (!Number.isInteger(page) || page < 1 || !Number.isInteger(limit) || limit < 1 || limit > 100 || !filter ||
+        (req.query.sort !== undefined && !sortOptions[req.query.sort])) {
       return res.status(400).json({ message: 'Invalid filters' });
     }
+    const sort = sortOptions[req.query.sort || 'date_desc'];
 
     const [expenses, total, rawTotals] = await Promise.all([
       Expense.find(filter)
-        .sort({ date: -1, _id: -1 })
+        .sort(sort)
         .limit(limit)
         .skip((page - 1) * limit),
       Expense.countDocuments(filter),

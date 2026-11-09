@@ -196,9 +196,24 @@ test('accounts own expenses, budgets, and recurring schedules', async () => {
     assert.match(csv, /Coffee/);
     assert.doesNotMatch(csv, /Lunch/);
     assert.equal((await request('/api/expenses/export.csv?currency=XYZ', 'GET', undefined, first.data.token)).status, 400);
+    assert.equal((await request('/api/expenses/export.csv?sort=bad', 'GET', undefined, first.data.token)).status, 400);
+    const sortedExport = await fetch(`${base}/api/expenses/export.csv?sort=amount_desc`, {
+      headers: { Authorization: `Bearer ${first.data.token}` }
+    });
+    assert.equal(sortedExport.status, 200);
     const usdExpenses = await request('/api/expenses?currency=USD', 'GET', undefined, first.data.token);
     assert.equal(usdExpenses.data.total, 1);
     assert.deepEqual(usdExpenses.data.totalsByCurrency, [{ _id: 'USD', total: 10 }]);
+    const descExpenses = await request('/api/expenses?sort=amount_desc', 'GET', undefined, first.data.token);
+    assert.equal(descExpenses.status, 200);
+    assert.ok(descExpenses.data.expenses[0].amount >= descExpenses.data.expenses[descExpenses.data.expenses.length - 1].amount);
+    const ascExpenses = await request('/api/expenses?sort=amount_asc', 'GET', undefined, first.data.token);
+    assert.equal(ascExpenses.status, 200);
+    assert.ok(ascExpenses.data.expenses[0].amount <= ascExpenses.data.expenses[ascExpenses.data.expenses.length - 1].amount);
+    const oldestExpenses = await request('/api/expenses?sort=date_asc', 'GET', undefined, first.data.token);
+    assert.equal(oldestExpenses.status, 200);
+    assert.ok(new Date(oldestExpenses.data.expenses[0].date) <= new Date(oldestExpenses.data.expenses[oldestExpenses.data.expenses.length - 1].date));
+    assert.equal((await request('/api/expenses?sort=invalid', 'GET', undefined, first.data.token)).status, 400);
     const mixedStats = await request('/api/dashboard/stats', 'GET', undefined, first.data.token);
     assert.equal(mixedStats.data.totalExpenses, 0);
     assert.deepEqual(Object.fromEntries(mixedStats.data.totalsByCurrency.map(item => [item._id, item.total])), { EUR: 20, USD: 10 });
