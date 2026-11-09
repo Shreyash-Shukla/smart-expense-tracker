@@ -186,6 +186,15 @@
             <button id="account-submit" class="secondary-button" type="submit">Update password</button>
           </div>
         </form>
+        <div class="category-budget-heading"><h3>Preferences</h3><p class="muted">Set your preferred default currency for expense entry and budgets.</p></div>
+        <form id="currency-preference-form">
+          <label>Default currency<select id="preferred-currency" required></select></label>
+          <p id="currency-error" class="error" role="alert" hidden></p>
+          <p id="currency-message" class="muted" role="status" hidden></p>
+          <div class="form-actions">
+            <button id="currency-submit" class="secondary-button" type="submit">Save currency preference</button>
+          </div>
+        </form>
       </section>
     </section>
   </main>

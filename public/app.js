@@ -25,11 +25,22 @@ function showError(id, message) {
   $(id).hidden = !message;
 }
 
+function applyCurrencyPreference(curr) {
+  const c = curr || user?.preferredCurrency || 'INR';
+  $('expense-currency').value = c;
+  $('recurring-currency').value = c;
+  $('budget-currency').value = c;
+  $('preferred-currency').value = c;
+}
+
 function showView(signedIn) {
   $('auth-view').hidden = signedIn;
   $('dashboard-view').hidden = !signedIn;
   $('logout').hidden = !signedIn;
-  if (signedIn) $('greeting').textContent = `Hi, ${user.username}`;
+  if (signedIn) {
+    $('greeting').textContent = `Hi, ${user.username}`;
+    applyCurrencyPreference(user.preferredCurrency);
+  }
 }
 
 function signOut() {
@@ -70,6 +81,9 @@ function signOut() {
   $('change-password-form').reset();
   showError('account-error', '');
   showError('account-message', '');
+  $('currency-preference-form').reset();
+  showError('currency-error', '');
+  showError('currency-message', '');
   token = null;
   user = null;
   localStorage.removeItem('expense-token');
@@ -89,6 +103,7 @@ function resetExpenseForm() {
   editingId = null;
   $('expense-form').reset();
   setToday();
+  $('expense-currency').value = user?.preferredCurrency || 'INR';
   $('add-heading').textContent = 'Add an expense';
   $('expense-submit').textContent = 'Save expense';
   $('cancel-edit').hidden = true;
@@ -99,6 +114,7 @@ function resetRecurringForm() {
   editingRecurringId = null;
   $('recurring-form').reset();
   setRecurringToday();
+  $('recurring-currency').value = user?.preferredCurrency || 'INR';
   $('recurring-save').textContent = 'Add schedule';
   $('recurring-cancel').hidden = true;
   showError('recurring-error', '');
@@ -614,6 +630,27 @@ $('change-password-form').addEventListener('submit', async event => {
     submit.disabled = false;
   }
 });
+$('currency-preference-form').addEventListener('submit', async event => {
+  event.preventDefault();
+  showError('currency-error', '');
+  showError('currency-message', '');
+  const submit = $('currency-submit');
+  submit.disabled = true;
+  try {
+    const updated = await api('/api/auth/profile', {
+      method: 'PATCH',
+      body: JSON.stringify({ preferredCurrency: $('preferred-currency').value })
+    });
+    user.preferredCurrency = updated.preferredCurrency;
+    applyCurrencyPreference(user.preferredCurrency);
+    showError('currency-message', 'Default currency preference updated.');
+    await loadBudget();
+  } catch (error) {
+    showError('currency-error', error.message);
+  } finally {
+    submit.disabled = false;
+  }
+});
 $('logout').addEventListener('click', signOut);
 $('cancel-edit').addEventListener('click', resetExpenseForm);
 $('recurring-cancel').addEventListener('click', resetRecurringForm);
@@ -868,7 +905,7 @@ function setRecurringToday() {
 }
 
 function fillCurrencyOptions() {
-  for (const id of ['expense-currency', 'recurring-currency', 'budget-currency', 'filter-currency']) {
+  for (const id of ['expense-currency', 'recurring-currency', 'budget-currency', 'filter-currency', 'preferred-currency']) {
     const select = $(id);
     if (id === 'filter-currency') select.add(new Option('All currencies', ''));
     for (const [code, name] of Object.entries(currencyNames)) {

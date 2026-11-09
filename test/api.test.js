@@ -66,12 +66,14 @@ test('accounts own expenses, budgets, and recurring schedules', async () => {
     assert.match(html, /id="filter-sort"/);
     assert.match(html, /id="history-summary"/);
     assert.match(html, /id="change-password-form"/);
+    assert.match(html, /id="currency-preference-form"/);
     assert.equal((await request('/api/expenses')).status, 401);
     assert.equal((await request('/api/auth/register', 'POST', {})).status, 400);
     const first = await request('/api/auth/register', 'POST', { username: 'first', email: 'first@example.com', password: 'password123' });
     const second = await request('/api/auth/register', 'POST', { username: 'second', email: 'second@example.com', password: 'password123' });
     assert.equal(first.status, 201);
     assert.equal(second.status, 201);
+    assert.equal(first.data.user.preferredCurrency, 'INR');
     const expense = await request('/api/expenses', 'POST', { title: 'Lunch', amount: 250, category: 'Food' }, first.data.token);
     assert.equal(expense.status, 201);
     assert.equal((await request('/api/expenses', 'GET', undefined, second.data.token)).data.total, 0);
@@ -341,6 +343,13 @@ test('accounts own expenses, budgets, and recurring schedules', async () => {
     assert.equal((await request('/api/auth/profile', 'GET', undefined, reLogin.data.token)).status, 401);
     assert.equal((await request('/api/auth/profile', 'GET', undefined, changed.data.token)).status, 200);
     assert.equal((await request('/api/auth/login', 'POST', { email: 'first@example.com', password: 'in-app-new-password-123' })).status, 200);
+    assert.equal((await request('/api/auth/profile', 'PATCH', { preferredCurrency: 'USD' })).status, 401);
+    assert.equal((await request('/api/auth/profile', 'PATCH', { preferredCurrency: 'INVALID' }, changed.data.token)).status, 400);
+    const updatedProfile = await request('/api/auth/profile', 'PATCH', { preferredCurrency: 'USD' }, changed.data.token);
+    assert.equal(updatedProfile.status, 200);
+    assert.equal(updatedProfile.data.preferredCurrency, 'USD');
+    const fetchedProfile = await request('/api/auth/profile', 'GET', undefined, changed.data.token);
+    assert.equal(fetchedProfile.data.preferredCurrency, 'USD');
     assert.equal((await request('/api/auth/reset-password', 'POST', { token: resetToken, password: 'again-password-123' })).status, 400);
     assert.equal((await request('/api/auth/forgot-password', 'POST', { email: 'first@example.com' })).status, 200);
     const expiredToken = /#reset=([a-f0-9]{64})/.exec(sentMail[1].text)?.[1];

@@ -7,6 +7,7 @@ const User = require('../models/User');
 const PasswordResetToken = require('../models/PasswordResetToken');
 const auth = require('../middleware/auth');
 const { recoveryConfigured, sendPasswordReset } = require('../services/mail');
+const { currencies } = require('../config/currencies');
 
 const router = express.Router();
 const authLimiter = rateLimit({
@@ -55,7 +56,8 @@ router.post('/register', async (req, res) => {
       user: {
         id: user._id,
         username: user.username,
-        email: user.email
+        email: user.email,
+        preferredCurrency: user.preferredCurrency
       }
     });
   } catch (error) {
@@ -94,7 +96,8 @@ router.post('/login', async (req, res) => {
       user: {
         id: user._id,
         username: user.username,
-        email: user.email
+        email: user.email,
+        preferredCurrency: user.preferredCurrency
       }
     });
   } catch (error) {
@@ -164,6 +167,26 @@ router.get('/profile', auth, async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Could not load profile' });
+  }
+});
+
+// Update profile preferences
+router.patch('/profile', auth, async (req, res) => {
+  const { preferredCurrency } = req.body || {};
+  if (!currencies.includes(preferredCurrency)) {
+    return res.status(400).json({ message: 'Invalid currency' });
+  }
+  try {
+    const user = await User.findByIdAndUpdate(
+      req.userId,
+      { $set: { preferredCurrency } },
+      { new: true, runValidators: true }
+    ).select('-password -sessionVersion');
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    res.json(user);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Could not update profile' });
   }
 });
 

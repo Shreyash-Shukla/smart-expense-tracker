@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
+const { currencies } = require('../config/currencies');
 
 const userSchema = new mongoose.Schema({
   username: {
@@ -21,6 +22,11 @@ const userSchema = new mongoose.Schema({
     type: String,
     required: true,
     minlength: 8
+  },
+  preferredCurrency: {
+    type: String,
+    enum: currencies,
+    default: 'INR'
   },
   sessionVersion: { type: Number, default: 0 },
   createdAt: {
