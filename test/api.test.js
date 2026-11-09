@@ -62,6 +62,8 @@ test('accounts own expenses, budgets, and recurring schedules', async () => {
     assert.match(html, /id="budget-alerts"/);
     assert.match(html, /Export CSV/);
     assert.match(html, /Search title or note/);
+    assert.match(html, /id="filter-sort"/);
+    assert.match(html, /id="history-summary"/);
     assert.equal((await request('/api/expenses')).status, 401);
     assert.equal((await request('/api/auth/register', 'POST', {})).status, 400);
     const first = await request('/api/auth/register', 'POST', { username: 'first', email: 'first@example.com', password: 'password123' });

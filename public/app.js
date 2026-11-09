@@ -133,6 +133,19 @@ function editExpense(expense) {
   $('expense-title').focus({ preventScroll: true });
 }
 
+function duplicateExpense(expense) {
+  resetExpenseForm();
+  $('expense-title').value = expense.title;
+  $('expense-amount').value = expense.amount;
+  $('expense-currency').value = expense.currency || 'INR';
+  setToday();
+  $('expense-category').value = expense.category;
+  $('expense-description').value = expense.description || '';
+  $('add-heading').textContent = 'Add an expense (copy)';
+  $('expense-form').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  $('expense-amount').focus({ preventScroll: true });
+}
+
 async function api(path, options = {}) {
   const response = await fetch(path, {
     ...options,
@@ -437,6 +450,12 @@ function expenseRow(expense) {
   amount.textContent = money(expense.amount, expense.currency || 'INR');
   const actions = document.createElement('div');
   actions.className = 'expense-actions';
+  const copy = document.createElement('button');
+  copy.className = 'expense-action';
+  copy.type = 'button';
+  copy.textContent = 'Copy';
+  copy.setAttribute('aria-label', `Copy ${expense.title}`);
+  copy.addEventListener('click', () => duplicateExpense(expense));
   const edit = document.createElement('button');
   edit.className = 'expense-action';
   edit.type = 'button';
@@ -462,7 +481,7 @@ function expenseRow(expense) {
       remove.disabled = false;
     }
   });
-  actions.append(edit, remove);
+  actions.append(copy, edit, remove);
   side.append(amount, actions);
   row.append(main, side);
   return row;
