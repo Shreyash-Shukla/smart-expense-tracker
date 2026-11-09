@@ -68,6 +68,7 @@ test('accounts own expenses, budgets, and recurring schedules', async () => {
     assert.match(html, /Export CSV/);
     assert.match(html, /Search title or note/);
     assert.match(html, /id="filter-sort"/);
+    assert.match(html, /id="filter-date-preset"/);
     assert.match(html, /id="history-summary"/);
     assert.match(html, /id="change-password-form"/);
     assert.match(html, /id="currency-preference-form"/);

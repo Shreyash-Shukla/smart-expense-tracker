@@ -828,6 +828,43 @@ $('clear-filters').addEventListener('click', async () => {
     showError('list-error', error.message);
   }
 });
+
+function applyDatePreset(preset) {
+  const now = new Date();
+  if (preset === 'today') {
+    const today = localDate(now);
+    $('filter-start').value = today;
+    $('filter-end').value = today;
+  } else if (preset === 'this_week') {
+    const day = (now.getDay() + 6) % 7;
+    const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - day);
+    $('filter-start').value = localDate(monday);
+    $('filter-end').value = localDate(now);
+  } else if (preset === 'this_month') {
+    const start = new Date(now.getFullYear(), now.getMonth(), 1);
+    $('filter-start').value = localDate(start);
+    $('filter-end').value = localDate(now);
+  } else if (preset === 'last_month') {
+    const start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const end = new Date(now.getFullYear(), now.getMonth(), 0);
+    $('filter-start').value = localDate(start);
+    $('filter-end').value = localDate(end);
+  } else if (preset === 'this_year') {
+    const start = new Date(now.getFullYear(), 0, 1);
+    $('filter-start').value = localDate(start);
+    $('filter-end').value = localDate(now);
+  }
+}
+$('filter-date-preset').addEventListener('change', () => {
+  const preset = $('filter-date-preset').value;
+  if (preset) {
+    applyDatePreset(preset);
+    $('filter-form').dispatchEvent(new Event('submit', { cancelable: true }));
+  }
+});
+$('filter-start').addEventListener('input', () => { $('filter-date-preset').value = ''; });
+$('filter-end').addEventListener('input', () => { $('filter-date-preset').value = ''; });
+
 $('export-expenses').addEventListener('click', async () => {
   showError('list-error', '');
   const button = $('export-expenses');
