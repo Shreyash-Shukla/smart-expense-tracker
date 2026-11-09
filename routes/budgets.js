@@ -15,6 +15,17 @@ function validMonth(month) {
   return /^\d{4}-(0[1-9]|1[0-2])$/.test(month);
 }
 
+function previousMonth(month) {
+  const [yearStr, monthStr] = month.split('-');
+  let year = Number(yearStr);
+  let m = Number(monthStr) - 1;
+  if (m === 0) {
+    m = 12;
+    year -= 1;
+  }
+  return `${year}-${String(m).padStart(2, '0')}`;
+}
+
 function budgetAlert(scope, category, budget, spent) {
   if (budget === null) return null;
   const budgetCents = Math.round(budget * 100);
@@ -145,6 +156,45 @@ router.delete('/:month', async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Could not clear budget' });
+  }
+});
+
+router.post('/:month/copy-previous', async (req, res) => {
+  try {
+    const prevMonth = previousMonth(req.params.month);
+    const [prevBudget, prevCategoryBudgets] = await Promise.all([
+      Budget.findOne({ user: req.userId, month: prevMonth }),
+      CategoryBudget.find({ user: req.userId, month: prevMonth, currency: req.currency }).lean()
+    ]);
+    const prevAmount = req.currency === 'INR' ? prevBudget?.amount ?? null : prevBudget?.otherAmounts?.get?.(req.currency) ?? null;
+    if (prevAmount === null && prevCategoryBudgets.length === 0) {
+      return res.status(404).json({ message: 'No budget or limits found in previous month' });
+    }
+    if (prevAmount !== null && prevAmount !== undefined) {
+      const field = req.currency === 'INR' ? 'amount' : `otherAmounts.${req.currency}`;
+      const filter = { user: req.userId, month: req.params.month };
+      const update = { $set: { [field]: prevAmount } };
+      try {
+        await Budget.findOneAndUpdate(filter, update, { upsert: true, runValidators: true });
+      } catch (error) {
+        if (error.code !== 11000) throw error;
+        await Budget.updateOne(filter, update, { runValidators: true });
+      }
+    }
+    for (const cat of prevCategoryBudgets) {
+      const filter = { user: req.userId, month: req.params.month, currency: req.currency, category: cat.category };
+      const update = { $set: { amount: cat.amount } };
+      try {
+        await CategoryBudget.findOneAndUpdate(filter, update, { upsert: true, runValidators: true });
+      } catch (error) {
+        if (error.code !== 11000) throw error;
+        await CategoryBudget.updateOne(filter, update, { runValidators: true });
+      }
+    }
+    res.json(await summary(req.userId, req.params.month, req.currency));
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Could not copy budget from previous month' });
   }
 });
 

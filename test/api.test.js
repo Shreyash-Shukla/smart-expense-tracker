@@ -60,6 +60,7 @@ test('accounts own expenses, budgets, and recurring schedules', async () => {
     assert.match(html, /Spending insights/);
     assert.match(html, /Category limits/);
     assert.match(html, /id="budget-alerts"/);
+    assert.match(html, /id="budget-copy"/);
     assert.match(html, /Export CSV/);
     assert.match(html, /Search title or note/);
     assert.match(html, /id="filter-sort"/);
@@ -315,9 +316,15 @@ test('accounts own expenses, budgets, and recurring schedules', async () => {
     await request('/api/expenses', 'POST', { title: 'Item 1', amount: 0.1, category: 'Food', date: '2025-06-01T12:00:00.000Z' }, reLogin.data.token);
     await request('/api/expenses', 'POST', { title: 'Item 2', amount: 0.2, category: 'Food', date: '2025-06-02T12:00:00.000Z' }, reLogin.data.token);
     await request('/api/budgets/2025-06', 'PUT', { amount: 100 }, reLogin.data.token);
+    await request('/api/budgets/2025-06/categories/Bills', 'PUT', { amount: 50 }, reLogin.data.token);
     const juneBudget = await request('/api/budgets/2025-06', 'GET', undefined, reLogin.data.token);
     assert.equal(juneBudget.data.spent, 0.3);
     assert.equal(juneBudget.data.remaining, 99.7);
+    const copyJuly = await request('/api/budgets/2025-07/copy-previous', 'POST', undefined, reLogin.data.token);
+    assert.equal(copyJuly.status, 200);
+    assert.equal(copyJuly.data.budget, 100);
+    assert.equal(copyJuly.data.categories.find(c => c.category === 'Bills').budget, 50);
+    assert.equal((await request('/api/budgets/2024-01/copy-previous', 'POST', undefined, reLogin.data.token)).status, 404);
     const todayStr = new Date().toISOString().slice(0, 10);
     const testRecurring = await request('/api/recurring', 'POST', { title: 'Gym', amount: 40, category: 'Healthcare', frequency: 'monthly', startDate: todayStr }, reLogin.data.token);
     const putRecurring = await request(`/api/recurring/${testRecurring.data._id}`, 'PUT', { title: 'Gym Premium', amount: 50, category: 'Healthcare', frequency: 'monthly', startDate: todayStr }, reLogin.data.token);

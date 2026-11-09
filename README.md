@@ -26,6 +26,7 @@ The app supports INR, USD, EUR, GBP, CAD, AUD, SGD, AED, and CHF. Existing recor
 - `GET /api/dashboard/stats`, `GET /api/dashboard/categories` (totals and breakdowns include currency; legacy `totalExpenses` is the INR total)
 - `GET /api/budgets/:month`, `PUT /api/budgets/:month`, `DELETE /api/budgets/:month` (`month` is `YYYY-MM`; optional `currency` query defaults to INR; spending uses UTC calendar months; responses include category spending, limits, and threshold warnings)
 - `PUT /api/budgets/:month/categories/:category`, `DELETE /api/budgets/:month/categories/:category` (set or clear a category limit for the selected currency)
+- `POST /api/budgets/:month/copy-previous` (copy previous month's budget and category limits for the selected currency)
 - `GET /api/recurring`, `POST /api/recurring`, `PUT /api/recurring/:id` (edit future schedule), `PATCH /api/recurring/:id` (pause/resume), `DELETE /api/recurring/:id`
 - `GET /api/health`
 

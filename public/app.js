@@ -675,6 +675,20 @@ $('budget-clear').addEventListener('click', async () => {
     $('budget-clear').disabled = false;
   }
 });
+$('budget-copy').addEventListener('click', async () => {
+  showError('budget-error', '');
+  showError('category-budget-error', '');
+  const button = $('budget-copy');
+  button.disabled = true;
+  try {
+    await api(`/api/budgets/${$('budget-month').value}/copy-previous?currency=${$('budget-currency').value}`, { method: 'POST' });
+    await loadBudget();
+  } catch (error) {
+    showError('budget-error', error.message);
+  } finally {
+    button.disabled = false;
+  }
+});
 $('recurring-form').addEventListener('submit', async event => {
   event.preventDefault();
   showError('recurring-error', '');
