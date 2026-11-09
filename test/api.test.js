@@ -8,6 +8,10 @@ const { advance } = require('../services/recurring');
 const { periodStartDate } = require('../routes/dashboard');
 const PasswordResetToken = require('../models/PasswordResetToken');
 const Expense = require('../models/Expense');
+const Budget = require('../models/Budget');
+const CategoryBudget = require('../models/CategoryBudget');
+const RecurringExpense = require('../models/RecurringExpense');
+const User = require('../models/User');
 
 process.env.JWT_SECRET = 'test-secret-that-is-at-least-thirty-two-characters';
 process.env.APP_BASE_URL = 'https://tracker.example.test';
@@ -67,6 +71,7 @@ test('accounts own expenses, budgets, and recurring schedules', async () => {
     assert.match(html, /id="history-summary"/);
     assert.match(html, /id="change-password-form"/);
     assert.match(html, /id="currency-preference-form"/);
+    assert.match(html, /id="delete-account-button"/);
     assert.equal((await request('/api/expenses')).status, 401);
     assert.equal((await request('/api/auth/register', 'POST', {})).status, 400);
     const first = await request('/api/auth/register', 'POST', { username: 'first', email: 'first@example.com', password: 'password123' });
@@ -358,6 +363,20 @@ test('accounts own expenses, budgets, and recurring schedules', async () => {
     delete process.env.SMTP_HOST;
     assert.equal((await request('/api/auth/forgot-password', 'POST', { email: 'first@example.com' })).status, 503);
     process.env.SMTP_HOST = 'smtp.example.test';
+    assert.equal((await request('/api/auth/account', 'DELETE')).status, 401);
+    await request('/api/expenses', 'POST', { title: 'Coffee', amount: 5, category: 'Food' }, second.data.token);
+    await request('/api/budgets/2025-04', 'PUT', { amount: 100 }, second.data.token);
+    await request('/api/budgets/2025-04/categories/Food', 'PUT', { amount: 50 }, second.data.token);
+    await request('/api/recurring', 'POST', { title: 'Sub', amount: 10, category: 'Entertainment', frequency: 'monthly', startDate: '2025-04-01' }, second.data.token);
+    const deleteAccountRes = await request('/api/auth/account', 'DELETE', undefined, second.data.token);
+    assert.equal(deleteAccountRes.status, 200);
+    assert.equal(await User.findById(second.data.user.id), null);
+    assert.equal(await Expense.countDocuments({ user: second.data.user.id }), 0);
+    assert.equal(await Budget.countDocuments({ user: second.data.user.id }), 0);
+    assert.equal(await CategoryBudget.countDocuments({ user: second.data.user.id }), 0);
+    assert.equal(await RecurringExpense.countDocuments({ user: second.data.user.id }), 0);
+    assert.equal((await request('/api/auth/profile', 'GET', undefined, second.data.token)).status, 401);
+    assert.equal((await request('/api/auth/login', 'POST', { email: 'second@example.com', password: 'password123' })).status, 400);
   } finally {
     await mongoose.connection.dropDatabase();
     await mongoose.disconnect();

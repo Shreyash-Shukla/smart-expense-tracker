@@ -4,6 +4,10 @@ const { randomBytes, createHash } = require('node:crypto');
 const validator = require('validator');
 const { rateLimit } = require('express-rate-limit');
 const User = require('../models/User');
+const Expense = require('../models/Expense');
+const Budget = require('../models/Budget');
+const CategoryBudget = require('../models/CategoryBudget');
+const RecurringExpense = require('../models/RecurringExpense');
 const PasswordResetToken = require('../models/PasswordResetToken');
 const auth = require('../middleware/auth');
 const { recoveryConfigured, sendPasswordReset } = require('../services/mail');
@@ -212,6 +216,24 @@ router.post('/change-password', auth, async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Could not change password' });
+  }
+});
+
+// Delete account and all associated data
+router.delete('/account', auth, async (req, res) => {
+  try {
+    await Promise.all([
+      Expense.deleteMany({ user: req.userId }),
+      Budget.deleteMany({ user: req.userId }),
+      CategoryBudget.deleteMany({ user: req.userId }),
+      RecurringExpense.deleteMany({ user: req.userId }),
+      PasswordResetToken.deleteMany({ user: req.userId }),
+      User.findByIdAndDelete(req.userId)
+    ]);
+    res.json({ message: 'Account and associated data deleted' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Could not delete account' });
   }
 });
 

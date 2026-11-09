@@ -84,6 +84,7 @@ function signOut() {
   $('currency-preference-form').reset();
   showError('currency-error', '');
   showError('currency-message', '');
+  showError('delete-account-error', '');
   token = null;
   user = null;
   localStorage.removeItem('expense-token');
@@ -649,6 +650,22 @@ $('currency-preference-form').addEventListener('submit', async event => {
     showError('currency-error', error.message);
   } finally {
     submit.disabled = false;
+  }
+});
+$('delete-account-button').addEventListener('click', async () => {
+  showError('delete-account-error', '');
+  const confirmed = window.confirm('Are you sure you want to permanently delete your account and all associated data? This action cannot be undone.');
+  if (!confirmed) return;
+  const button = $('delete-account-button');
+  button.disabled = true;
+  try {
+    await api('/api/auth/account', { method: 'DELETE' });
+    signOut();
+    showError('auth-message', 'Your account and data have been permanently deleted.');
+  } catch (error) {
+    showError('delete-account-error', error.message);
+  } finally {
+    button.disabled = false;
   }
 });
 $('logout').addEventListener('click', signOut);
