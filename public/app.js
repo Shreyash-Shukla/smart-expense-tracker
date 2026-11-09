@@ -399,7 +399,11 @@ async function loadRecurring() {
     const title = document.createElement('strong');
     title.textContent = `${rule.title} · ${money(rule.amount, rule.currency || 'INR')}`;
     const meta = document.createElement('small');
-    meta.textContent = `${rule.category} · ${rule.frequency} · ${rule.active ? `Next: ${rule.nextDate}` : 'Paused'}`;
+    meta.className = 'recurring-meta';
+    const badge = document.createElement('span');
+    badge.className = 'category-badge';
+    badge.textContent = rule.category;
+    meta.append(badge, ` · ${rule.frequency} · ${rule.active ? `Next: ${rule.nextDate}` : 'Paused'}`);
     details.append(title, meta);
     const actions = document.createElement('div');
     actions.className = 'recurring-actions';
@@ -455,7 +459,10 @@ function expenseRow(expense) {
   title.textContent = expense.title;
   const meta = document.createElement('div');
   meta.className = 'expense-meta';
-  meta.textContent = `${expense.category} · ${new Date(expense.date).toLocaleDateString(undefined, { timeZone: 'UTC' })}${expense.recurringRule ? ' · Recurring' : ''}`;
+  const badge = document.createElement('span');
+  badge.className = 'category-badge';
+  badge.textContent = expense.category;
+  meta.append(badge, ` · ${new Date(expense.date).toLocaleDateString(undefined, { timeZone: 'UTC' })}${expense.recurringRule ? ' · Recurring' : ''}`);
   main.append(title, meta);
   if (expense.description) {
     const note = document.createElement('p');

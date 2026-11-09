@@ -4,13 +4,25 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Smart Expense Tracker</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/styles.css">
   <script src="/app.js" defer></script>
 </head>
 <body>
   <header class="site-header">
-    <div class="brand"><span class="brand-mark">S</span><span>Smart Expense Tracker</span></div>
-    <button id="logout" class="text-button" hidden>Log out</button>
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M2 17L12 22L22 17" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M2 12L12 17L22 12" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </span>
+      <span>Smart Expense Tracker</span>
+    </div>
+    <button id="logout" class="secondary-button header-logout" hidden>Log out</button>
   </header>
 
   <main>
@@ -195,11 +207,13 @@
             <button id="currency-submit" class="secondary-button" type="submit">Save currency preference</button>
           </div>
         </form>
-        <div class="category-budget-heading"><h3>Danger zone</h3><p class="muted">Permanently delete your account and all associated expenses, budgets, and recurring schedules.</p></div>
-        <div class="form-actions" style="margin-top: 14px;">
-          <button id="delete-account-button" class="danger-button" type="button">Delete account</button>
+        <div class="danger-zone">
+          <div class="danger-zone-heading"><h3>Danger zone</h3><p class="muted">Permanently delete your account and all associated expenses, budgets, and recurring schedules.</p></div>
+          <div class="form-actions" style="margin-top: 14px;">
+            <button id="delete-account-button" class="danger-button" type="button">Delete account</button>
+          </div>
+          <p id="delete-account-error" class="error" role="alert" hidden></p>
         </div>
-        <p id="delete-account-error" class="error" role="alert" hidden></p>
       </section>
     </section>
   </main>
